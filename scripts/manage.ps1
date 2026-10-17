@@ -65,6 +65,17 @@ function New-Backup([string]$Prefix) {
     New-Item -ItemType Directory -Path $path | Out-Null
     return $path
 }
+function Input-Config([string]$Text) {
+    # Preserve the user's other settings. Mode 1 is required for separate
+    # mouse/keyboard capture; mode 2 blocks both even if ImGui releases keys.
+    $section = [regex]::Match($Text,'(?ims)^\[INPUT\][^\r\n]*(?:\r?\n|$).*?(?=^\[|\z)')
+    if (-not $section.Success) { return $Text + "`r`n[INPUT]`r`nInputProcessing=1`r`n" }
+    $body = $section.Value
+    if ($body -match '(?im)^InputProcessing\s*=') {
+        $body = [regex]::Replace($body,'(?im)^InputProcessing\s*=[^\r\n]*','InputProcessing=1')
+    } else { $body = $body.TrimEnd("`r","`n") + "`r`nInputProcessing=1`r`n" }
+    return $Text.Substring(0,$section.Index) + $body + $Text.Substring($section.Index+$section.Length)
+}
 try {
     if (@($manifest.Files).Count -ne $allowed.Count -or @($manifest.Files.Name | Select-Object -Unique).Count -ne $allowed.Count) { throw (Msg 'Incomplete package manifest.' '发布包清单不完整。') }
     foreach ($file in $manifest.Files) {
@@ -95,6 +106,20 @@ try {
             }
         }
         $backup = $null
+        $configPath = Target 'ReShade.ini'
+        $configUpdate = $null
+        if ($ownBinaries -and (Test-Path -LiteralPath $configPath)) {
+            $reader = [IO.StreamReader]::new($configPath,[Text.UTF8Encoding]::new($false),$true)
+            try { $configText = $reader.ReadToEnd(); $configEncoding = $reader.CurrentEncoding } finally { $reader.Dispose() }
+            $nextConfig = Input-Config $configText
+            if ($nextConfig -cne $configText) {
+                $configUpdate = $nextConfig
+                $backup = New-Backup 'SinkingStarSketch-upgrade-'
+                Copy-Item -LiteralPath $configPath -Destination (Join-Path $backup 'ReShade.ini')
+                $draft = Join-Path $gameRoot 'SinkingStarSketch-data\drafts.txt'
+                if (Test-Path -LiteralPath $draft) { Copy-Item -LiteralPath $draft -Destination (Join-Path $backup 'drafts-before-upgrade.txt') }
+            }
+        }
         foreach ($file in $manifest.Files) {
             $target = Target $file.Name
             if (Test-Path -LiteralPath $target) {
@@ -111,6 +136,7 @@ try {
             [IO.Directory]::CreateDirectory((Split-Path -Parent $target)) | Out-Null
             Copy-Item -LiteralPath (Join-Path $payload $file.Name) -Destination $target -Force
         }
+        if ($null -ne $configUpdate) { [IO.File]::WriteAllText($configPath,$configUpdate,$configEncoding) }
         $actualFiles = @($manifest.Files | ForEach-Object { [ordered]@{Name=$_.Name;SHA256=(Hash (Target $_.Name))} })
         [ordered]@{Version=$manifest.Version;GameDirectory=$gameRoot;InstalledAt=(Get-Date).ToString('o');BackupDirectory=$backup;Files=$actualFiles} |
             ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $packageRoot 'installation.json') -Encoding UTF8

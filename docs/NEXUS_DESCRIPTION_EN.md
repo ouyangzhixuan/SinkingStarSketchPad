@@ -1,6 +1,6 @@
 # SinkingStarSketchPad — In-Game Drawing and Cell Paths
 
-**Version 3.2 Beta · English / Simplified Chinese · Windows, DirectX 12**
+**Version 3.3 Beta · English / Simplified Chinese · Windows, DirectX 12**
 
 An in-game scratchpad for Order of the Sinking Star: sketch ideas, place text notes, and plan routes snapped to cell centers. A themed crystal-blade cursor, star crosshair, and rune-ring eraser help keep annotations readable.
 
@@ -15,14 +15,14 @@ An in-game scratchpad for Order of the Sinking Star: sketch ideas, place text no
 ## Getting started
 Exit the game, extract the complete archive, and run **Install Mod.cmd**. If Steam detection cannot identify a unique installation, drag **sinking_star.exe** onto the script. The tested ReShade 6.8.0 full add-on runtime and an openly licensed Noto font are included.
 
-Press **E** for the toolbar, **G** to toggle the cursor and **B** to show/hide annotations. Use the **Language / 语言** menu to choose English or Chinese. For paths, press **E → H**, inspect the cell-center preview, then click along rows or columns and add a point at each turn.
+Press **E** for the toolbar, **G** to toggle the cursor and **B** to show/hide annotations. Use the **Language / 语言** menu to choose English or Chinese. Ordinary keyboard input stays available while drawing; Alt+letter selects tools. Alt+Tab preserves drawing mode. For paths, press **E → Alt+H**, inspect the cell-center preview, then click along rows or columns and add a point at each turn.
 
 ## Compatibility and limitations
 This is a beta. Automated validation includes real game upload data, grid inference, both UI languages, draft compatibility, DX12 rendering and synthetic camera movement, zoom and resize. Full visual alignment across all actual levels has not been comprehensively verified. Check the preview in your level, especially with unusual terrain, floors, transitions or wrapping maps.
 
 Only path marks are world anchored. Ordinary drawing and text stay in screen space. Routes do not check obstacles, move the player, push boxes or solve puzzles. Pages are not automatically assigned to levels.
 
-The installer preserves existing known-version settings and drafts and refuses conflicting graphics files. Do not overwrite another mod's dxgi.dll or ReShade setup. Only the bundled 6.8.0 full add-on runtime has been validated. See README_EN.md for existing ReShade installations.
+The installer preserves existing known-version drafts and other settings, backs up the configuration, and sets InputProcessing=1 for separate mouse/keyboard capture and refuses conflicting graphics files. Do not overwrite another mod's dxgi.dll or ReShade setup. Only the bundled 6.8.0 full add-on runtime has been validated. See README_EN.md for existing ReShade installations.
 
 ## Uninstall
 Exit the game and run **Uninstall Mod.cmd**. Verified mod files are moved to a backup folder; game saves, drafts, exports and language settings are retained.
@@ -30,7 +30,7 @@ Exit the game and run **Uninstall Mod.cmd**. Verified mod files are moved to a b
 ## Credits and development
 ReShade: Patrick Mours and contributors, BSD 3-Clause. Dear ImGui: Omar Cornut and contributors, MIT. Noto Sans CJK: SIL OFL 1.1. Runtime notices are included. No extracted game artwork or game files are supplied.
 
-This is an unofficial community tool. Development used generative AI; the code, UI text and translations contain AI-generated content. This page text was also drafted with generative AI. Mod-specific source code and documentation are MIT-licensed, copyright 2026 ouyangzhixuan. Third-party components retain their own licenses.
+This is an unofficial community tool. Development used generative AI; the code, UI text and translations contain AI-generated content. This page text and the promotional cover were also made with generative AI. Mod-specific source code and documentation are MIT-licensed, copyright 2026 ouyangzhixuan. Third-party components retain their own licenses.
 
 ## Source code and license
 

@@ -21,7 +21,7 @@ An in-game sketchpad for **Order of the Sinking Star**: draw ideas, add text not
 
 For a prebuilt release package, follow its `Install Mod.cmd` instructions after exiting the game. Do not copy a GitHub source ZIP into the game as if it were a prebuilt mod.
 
-Press **E** to open/close the toolbar, **G** for cursor visibility, and **B** for mark visibility. **E → H** selects cell paths. Choose the interface language in **Language / 语言**. See the [full English guide](docs/README_EN.md) for installation, upgrades, existing ReShade setups, controls, and uninstalling.
+Press **E** to open/close the toolbar, **G** for cursor visibility, and **B** for mark visibility. **E → Alt+H** selects cell paths. Keyboard movement and camera controls remain available while drawing. Alt+letter selects a tool; Alt+1-5 selects ink. Alt+Tab keeps drawing mode and commits the current stroke. Choose the interface language in **Language / 语言**. See the [full English guide](docs/README_EN.md) for installation, upgrades, existing ReShade setups, controls, and uninstalling.
 
 The compatible add-on filename and persistent data folder remain `SinkingStarSketch.addon64` and `SinkingStarSketch-data` so existing drafts and preferences continue to work.
 

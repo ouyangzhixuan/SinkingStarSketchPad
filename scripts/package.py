@@ -17,6 +17,7 @@ PINNED = {
     'font_license': '6A73F9541C2DE74158C0E7CF6B0A58EF774F5A780BF191F2D7EC9CC53EFE2BF2',
 }
 PREVIOUS_ADDONS = [
+    'FAA89FF88BA9F47C108FDFEEA4026817B7318B969A21FA0300E8A3BA844EF6E2',
     '6D920DBFF0A89EB31B1276E8C48C2BF6DC1580D277376B922C65B95B69331846',
     'B5B8C1D73F82038D899417A33B0DAAE84DD12D60097B54FBB8B15E62197FF950',
     '617BF3F380952C0F7ED0EF63BD162759C1631A7979B9D8F23141280931FE5803',
@@ -33,6 +34,7 @@ def main():
     parser.add_argument('--font', type=Path, required=True)
     parser.add_argument('--font-license', type=Path, required=True)
     parser.add_argument('--addon', type=Path, default=ROOT/'build/SinkingStarSketch.addon64')
+    parser.add_argument('--staging', type=Path, default=ROOT/'build/package/SinkingStarSketchPad-3.3')
     args = parser.parse_args()
     for key, expected in PINNED.items():
         path = getattr(args, key)
@@ -41,7 +43,7 @@ def main():
     if not args.addon.is_file() or args.addon.read_bytes()[:2] != b'MZ':
         parser.error('Build the native add-on first, or pass --addon.')
 
-    staging = ROOT/'build/package/SinkingStarSketchPad-3.2'
+    staging = args.staging.resolve()
     if staging.exists():
         parser.error(f'Staging folder already exists: {staging}. Move it aside before packaging again.')
     staging.mkdir(parents=True)
@@ -51,7 +53,8 @@ def main():
         'ReShade.ini': ROOT/'config/ReShade.ini',
         'SinkingStarSketch-assets\\NotoSansCJKsc-Regular.otf': args.font,
     }
-    manifest = {'Name':'SinkingStarSketchPad', 'Version':'3.2', 'ReleaseStatus':'Beta',
+    manifest = {'Name':'SinkingStarSketchPad', 'Version':'3.3', 'ReleaseStatus':'Beta',
+                'Source':'https://github.com/ouyangzhixuan/SinkingStarSketchPad', 'License':'MIT',
                 'Languages':['en','zh-CN'], 'KnownAddonHashes':PREVIOUS_ADDONS, 'Files':[]}
     for name, source in payload.items():
         target = staging/'game_files'/Path(name.replace('\\','/'))
@@ -86,7 +89,7 @@ exit /b %sketchResult%
     shutil.copy2(args.font_license, licenses/'Noto-SIL-OFL-1.1.txt')
     dist = ROOT/'dist'
     dist.mkdir(exist_ok=True)
-    archive = dist/'SinkingStarSketchPad-3.2.zip'
+    archive = dist/'SinkingStarSketchPad-3.3.zip'
     with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as output:
         for path in sorted(staging.rglob('*')):
             if path.is_file():

@@ -1,4 +1,15 @@
-# Validation — 3.2 Beta
+# Validation — 3.3 Beta
+
+The 3.3 input update is validated separately from the earlier rendering/grid work below. Full keyboard/mouse coexistence in an actual game session still needs user verification.
+
+- Core suites passed: model, projection/grid detection, localization, and focus/input policy.
+- Native ReShade 6.8.0 / DX12 fixture: 240 frames, resize, device-removed status 0. The production overlay was exercised with deterministic focus changes; drawing intent, interrupted-stroke commit/save, unfinished text preservation (including runtime recreation), and separate capture flags passed. The fixture simulates focus rather than moving the desktop's actual focus.
+- Messages sent only to the hidden test window: W/A reached the host while drawing, and W reached it again after runtime recreation; left-click messages did not. A did not select the arrow tool. No desktop input was generated.
+- Production add-on smoke test: 240 frames with the grid fixture and resize, device-removed status 0, existing annotations rendered into the native back buffer.
+- Installer: known 3.2 upgrade with InputProcessing=2, 0, absent key, or absent section; original config/add-on/draft backup, custom font retention, idempotent reinstall, uninstall, draft preservation, and fresh installation passed. When an existing routing key was present, config bytes changed only for its value.
+- Required routing: `[INPUT] InputProcessing=1`. See the [ReShade 6.8.0 input-routing implementation](https://github.com/crosire/reshade/blob/v6.8.0/source/runtime_gui.cpp#L1405). The installer migrates this setting; manual installations need the same setting.
+
+## Earlier 3.2 validation
 
 - Translation catalog: complete English/Chinese entries, matching printf argument types, stable window IDs, system-language defaults and explicit overrides.
 - Both UI languages rendered with the bundled Noto font in the DX12 test host: 240 frames each, resize, native back-buffer readback and device-removed status 0.

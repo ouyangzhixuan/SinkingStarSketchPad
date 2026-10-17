@@ -9,6 +9,7 @@
 #include "cursor_style.hpp"
 #include "camera_bridge.hpp"
 #include "grid_bridge.hpp"
+#include "input_policy.hpp"
 #include <chrono>
 #include <mutex>
 
@@ -39,6 +40,7 @@ Stroke pending;
 grid::Camera camera;
 grid::Detection detected_grid;
 bool path_active=false, grid_preview=true;
+input::Focus input_focus;
 void finish_path(){path_active=false;}
 void select_tool(Tool t){selected=t;finish_path();}
 Page erase_before;
@@ -53,9 +55,9 @@ void log(const std::string &s) { reshade::log::message(reshade::log::level::info
 void status() {
     if (data_path.empty()) return;
     std::ofstream f(data_path.parent_path()/L"status.txt");
-    f << "version=3.2\nprocess=" << GetCurrentProcessId() << "\nrenderer=DirectX12\nediting=" << editing
+    f << "version=3.3\nprocess=" << GetCurrentProcessId() << "\nrenderer=DirectX12\nediting=" << editing
       << "\npage=" << doc.page+1 << "\nstrokes=" << page().size() << "\ncursor=" << doc.cursor
-      << "\nlanguage=" << i18n::language_code(language) << "\nui_language=" << (chinese()?"zh-CN":"en") << "\nvisible=" << visible << "\nframes=" << frame_count << "\ncamera=" << camera.valid << "\ncamera_frame=" << camera.frame << "\ngrid=" << detected_grid.lattice.ready << "\ngrid_centers=" << detected_grid.centers << "\n";
+      << "\nlanguage=" << i18n::language_code(language) << "\nui_language=" << (chinese()?"zh-CN":"en") << "\nvisible=" << visible << "\nforeground=" << input_focus.active << "\nframes=" << frame_count << "\ncamera=" << camera.valid << "\ncamera_frame=" << camera.frame << "\ngrid=" << detected_grid.lattice.ready << "\ngrid_centers=" << detected_grid.centers << "\n";
 }
 void set_language(i18n::Language value){
     language=value;auto path=data_path.parent_path()/L"settings.ini";
@@ -223,12 +225,12 @@ bool in_rect(Point p,ImVec2 a,ImVec2 b){return p.x>=a.x&&p.y>=a.y&&p.x<=b.x&&p.y
 void controls(effect_runtime*rt,Point size,Point mouse,bool &over_ui) {
     ImGui::SetNextWindowPos(ImVec2(24,std::max(20.f,size.y-365)),ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowBgAlpha(.96f);
-    ImGui::Begin(tr(Label::Title),nullptr,ImGuiWindowFlags_AlwaysAutoResize|ImGuiWindowFlags_NoCollapse|ImGuiWindowFlags_NoSavedSettings);
+    ImGui::Begin(tr(Label::Title),nullptr,ImGuiWindowFlags_AlwaysAutoResize|ImGuiWindowFlags_NoCollapse|ImGuiWindowFlags_NoSavedSettings|ImGuiWindowFlags_NoNavInputs);
     ImGui::SetNextItemWidth(195);int choice=static_cast<int>(language);
     const char *languages[]={"System / 系统","English","简体中文 / Chinese"};
     if(ImGui::Combo("Language / 语言###SketchLanguage",&choice,languages,3))set_language(static_cast<i18n::Language>(choice));
     const char *labels[]={tr(Label::Pen),tr(Label::Line),tr(Label::Arrow),tr(Label::Rectangle),tr(Label::Ellipse),tr(Label::Text),tr(Label::Eraser),tr(Label::Path)};
-    for(unsigned i=0;i<8;++i){if(i)ImGui::SameLine();const bool active=selected==Tool(i);if(active)ImGui::PushStyleColor(ImGuiCol_Button,ImVec4(.46f,.36f,.18f,1));if(ImGui::Button(labels[i])){commit();select_tool(Tool(i));}if(active)ImGui::PopStyleColor();}
+    for(unsigned i=0;i<8;++i){if(i%4)ImGui::SameLine();const bool active=selected==Tool(i);if(active)ImGui::PushStyleColor(ImGuiCol_Button,ImVec4(.46f,.36f,.18f,1));if(ImGui::Button(labels[i])){commit();select_tool(Tool(i));}if(active)ImGui::PopStyleColor();}
     for(unsigned i=0;i<5;++i){if(i)ImGui::SameLine();ImGui::PushID(int(i));auto c=ImGui::ColorConvertU32ToFloat4(colors[i]);if(ImGui::ColorButton(tr(Label::Color),c,0,ImVec2(28,25)))selected_color=i;ImGui::PopID();}
     ImGui::SameLine();ImGui::SetNextItemWidth(145);ImGui::SliderFloat(tr(Label::Width),&width,1,16,"%.0f");
     ImGui::SameLine();if(ImGui::Button(tr(Label::Undo)))undo();ImGui::SameLine();if(ImGui::Button(tr(Label::Redo)))redo();ImGui::SameLine();if(ImGui::Button(tr(Label::Clear)))clear();
@@ -237,6 +239,7 @@ void controls(effect_runtime*rt,Point size,Point mouse,bool &over_ui) {
     ImGui::SameLine();if(ImGui::Button(tr(Label::Export))){commit();export_svg(size);}
     ImGui::SameLine();if(ImGui::Button(tr(Label::Return)))set_edit(false);
     ImGui::TextUnformatted(tr(Label::Help));
+    ImGui::TextUnformatted(tr(Label::KeyboardHelp));
     ImGui::Text(tr(Label::Stats),doc.page+1,page().size(),dirty?tr(Label::Saving):tr(Label::Saved));
     if(selected==Tool::Path){
         if(ImGui::Button(tr(Label::NewPath)))finish_path();
@@ -273,7 +276,7 @@ void keys(effect_runtime*rt) {
         if(rt->is_key_pressed('S')){commit();if(save())note(tr(Label::Saved));}
         if(shift&&rt->is_key_pressed(VK_DELETE))clear();
         for(unsigned i=0;i<3;++i)if(rt->is_key_pressed('1'+i)){commit();finish_path();doc.page=i;changed();}
-    }else{
+    }else if(input::tool_shortcuts(ctrl,shift,alt)){
         const int codes[]={'P','L','A','R','O','T','K','H'};
         for(unsigned i=0;i<8;++i)if(rt->is_key_pressed(codes[i])){commit();select_tool(Tool(i));}
         for(unsigned i=0;i<5;++i)if(rt->is_key_pressed('1'+i))selected_color=i;
@@ -320,17 +323,32 @@ void overlay(effect_runtime*rt) {
         // ReShade virtualizes Win32 GetCursorPos while it blocks game input.
         // Its ImGui input has the real client position, already scaled to this back buffer.
         Point mouse={io.MousePos.x,io.MousePos.y};
-        if(!foreground && editing)set_edit(false);
-        if(foreground&&!reshade_menu)keys(rt);
+        const bool mouse_down=ImGui::IsMouseDown(ImGuiMouseButton_Left)||ImGui::IsMouseDown(ImGuiMouseButton_Right);
+        const bool was_foreground=input_focus.active;
+        if(input_focus.update(foreground,mouse_down)&&editing){commit();save();status();}
+        if(foreground&&!was_foreground)status();
+        // Ignore activation-frame keys (including an Alt+Tab chord), and keep
+        // an unfinished text dialog intact while another application has focus.
+        if(foreground&&was_foreground&&!reshade_menu)keys(rt);
         bool over_ui=false;
-        if(editing&&!reshade_menu) {
-            rt->block_input_next_frame();ImGui::SetNextFrameWantCaptureMouse(true);ImGui::SetNextFrameWantCaptureKeyboard(true);
+        if(editing&&foreground&&!reshade_menu) {
             controls(rt,size,mouse,over_ui);
-            if(editing)canvas(rt,size,mouse,over_ui);
+            if(editing&&input_focus.canvas_ready())canvas(rt,size,mouse,over_ui);
+        }
+        if(!reshade_menu){
+            const bool capture_mouse=editing&&foreground;
+            const bool capture_keys=capture_mouse&&input::capture_keyboard(text_open,rt->is_key_down(VK_CONTROL),rt->is_key_down(VK_MENU));
+            // InputProcessing=1 lets ReShade honor the two capture flags
+            // separately. The block request enables add-on input routing even
+            // when ReShade's own Home overlay is closed. Set current AND next
+            // frame flags so a previously focused widget cannot eat movement.
+            if(capture_mouse)rt->block_input_next_frame();
+            io.WantCaptureMouse=capture_mouse;io.WantCaptureKeyboard=capture_keys;
+            ImGui::SetNextFrameWantCaptureMouse(capture_mouse);ImGui::SetNextFrameWantCaptureKeyboard(capture_keys);
         }
         ImDrawList *draw=ImGui::GetBackgroundDrawList();
         if(visible){for(const auto&s:page())draw_stroke(draw,*s,size);if(dragging)draw_stroke(draw,pending,size);}
-        if(editing&&!over_ui&&!reshade_menu)draw_grid_preview(draw,mouse,size);
+        if(editing&&foreground&&!over_ui&&!reshade_menu)draw_grid_preview(draw,mouse,size);
         if(foreground&&!reshade_menu&&(doc.cursor||editing)&&mouse.x>=0&&mouse.y>=0&&mouse.x<size.x&&mouse.y<size.y)cursor(ImGui::GetForegroundDrawList(),mouse);
         if(!editing&&!reshade_menu){ImDrawList*d=ImGui::GetForegroundDrawList();float right=std::min(size.x-18.f,42.f+gui_text_size(tr(Label::Hud)).x);d->AddRectFilled(ImVec2(18,size.y-47),ImVec2(right,size.y-14),IM_COL32(18,27,41,205),7);d->AddText(ImVec2(30,size.y-41),colors[0],tr(Label::Hud));}
         if(GetTickCount64()<toast_until){ImGui::SetNextWindowPos(ImVec2(size.x*.5f,22),ImGuiCond_Always,ImVec2(.5f,0));ImGui::Begin("##SketchToast",nullptr,ImGuiWindowFlags_NoDecoration|ImGuiWindowFlags_AlwaysAutoResize|ImGuiWindowFlags_NoInputs|ImGuiWindowFlags_NoSavedSettings);ImGui::TextUnformatted(toast.c_str());ImGui::End();}
@@ -344,7 +362,9 @@ bool opened(effect_runtime*rt,bool open,reshade::api::input_source) {
 }
 void destroyed(effect_runtime*rt) {
     std::lock_guard<std::recursive_mutex> lock(state_mutex);
-    if(rt==primary){commit();if(text_open)finish_text();save();primary=nullptr;editing=false;reshade_menu=false;}
+    // ResizeBuffers/fullscreen transitions also destroy this runtime. Retain
+    // editing intent and the text buffer for the replacement swap chain.
+    if(rt==primary){commit();save();primary=nullptr;reshade_menu=false;input_focus={};if(text_open)text_focus=true;}
 }
 }
 extern "C" __declspec(dllexport) const char *NAME="SinkingStarSketchPad";
@@ -360,9 +380,10 @@ extern "C" __declspec(dllexport) bool AddonInit(HMODULE addon,HMODULE reshade_mo
     reshade::register_event<reshade::addon_event::reshade_overlay>(overlay);
     reshade::register_event<reshade::addon_event::reshade_open_overlay>(opened);
     reshade::register_event<reshade::addon_event::destroy_effect_runtime>(destroyed);
-    log("SinkingStarSketchPad 3.2 loaded (E: draw, G: cursor, B: visibility).");return true;
+    log("SinkingStarSketchPad 3.3 loaded (E: draw, G: cursor, B: visibility; Alt+letter: tool).");return true;
 }
 extern "C" __declspec(dllexport) void AddonUninit(HMODULE addon,HMODULE) {
+    {std::lock_guard<std::recursive_mutex> lock(state_mutex);commit();if(text_open)finish_text();save();}
     reshade::unregister_event<reshade::addon_event::reshade_overlay>(overlay);
     reshade::unregister_event<reshade::addon_event::reshade_open_overlay>(opened);
     reshade::unregister_event<reshade::addon_event::destroy_effect_runtime>(destroyed);

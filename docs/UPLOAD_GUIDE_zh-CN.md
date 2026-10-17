@@ -1,18 +1,18 @@
 # Nexus Mods 发布说明
 
-发布文件：`SinkingStarSketchPad-3.2.zip`。这是提供给玩家的完整包。作者材料目录无需一起上传，也不要上传本机安装后生成的 `installation.json`、存档、日志、诊断 DLL、游戏资源或开发用压缩包。
+发布文件：`SinkingStarSketchPad-3.3.zip`。这是提供给玩家的完整包。作者材料目录无需一起上传，也不要上传本机安装后生成的 `installation.json`、存档、日志、诊断 DLL、游戏资源或开发用压缩包。
 
 建议标题：**SinkingStarSketchPad - In-Game Drawing and Cell Paths**
 
 简短英文介绍：**An in-game scratchpad with a themed cursor, drawing tools, saved pages and cell-snapped route marks. English and Simplified Chinese.**
 
-版本：**3.2**；发布状态建议选择 **Beta**。在对应游戏分类下发布，未找到游戏分类时先按 Nexus 的游戏收录流程处理，不要放到无关游戏。作者署名为 ouyangzhixuan；项目源码和文档已选择 MIT 开源，请在 Nexus 页面保持与 MIT 一致的修改、转载和资源使用权限，第三方组件另按各自许可处理。
+版本：**3.3**；发布状态建议选择 **Beta**。在对应游戏分类下发布，未找到游戏分类时先按 Nexus 的游戏收录流程处理，不要放到无关游戏。作者署名为 ouyangzhixuan；项目源码和文档已选择 MIT 开源，请在 Nexus 页面保持与 MIT 一致的修改、转载和资源使用权限，第三方组件另按各自许可处理。
 
 正文可使用同目录的 `NEXUS_DESCRIPTION_EN.md` / `.txt`，完整英文使用文档已在玩家包中。建议展示真实关卡里的路径与相机移动前后效果；附带的 UI 预览来自 DX12 测试程序，不是实际关卡截图，若上传请保留这一说明。
 
 ## AI 标记和说明
 
-本项目的代码、界面和翻译主要由生成式 AI 生成，按当前 Nexus 规则应使用 **AI-Generated Content**；附带的 AI 起草页面文字还对应 **AI Media**。不要仅用 AI Assisted 代替。英文介绍已包含如实说明。
+本项目的代码、界面和翻译主要由生成式 AI 生成，按当前 Nexus 规则应使用 **AI-Generated Content**；附带的 AI 生成封面和页面文字还对应 **AI Media**。不要仅用 AI Assisted 代替。英文介绍已包含如实说明。
 
 依据：[Nexus File Submission Guidelines — Generative AI Tagging & Categorisation](https://help.nexusmods.com/article/28-file-submission-guidelines)。规则会更新，请在提交时再次查看。
 

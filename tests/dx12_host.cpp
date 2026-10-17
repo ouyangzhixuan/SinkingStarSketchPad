@@ -11,11 +11,13 @@
 #include <cstring>
 #include <cmath>
 using Microsoft::WRL::ComPtr;
+bool input_fixture=false,received_move=false,received_click=false;
 void check(HRESULT hr,const char*name){if(FAILED(hr))throw std::runtime_error(std::string(name)+" HRESULT="+std::to_string(static_cast<unsigned>(hr)));}
-LRESULT CALLBACK wndproc(HWND h,UINT m,WPARAM w,LPARAM l){if(m==WM_KEYDOWN||m==WM_LBUTTONDOWN)std::ofstream("host-input.txt",std::ios::app)<<m<<' '<<w<<'\n';if(m==WM_CLOSE){DestroyWindow(h);return 0;}if(m==WM_DESTROY){PostQuitMessage(0);return 0;}return DefWindowProcW(h,m,w,l);}
+LRESULT CALLBACK wndproc(HWND h,UINT m,WPARAM w,LPARAM l){if(m==WM_KEYDOWN||m==WM_LBUTTONDOWN)std::ofstream("host-input.txt",std::ios::app)<<m<<' '<<w<<'\n';if(m==WM_KEYDOWN&&w=='W')received_move=true;if(m==WM_LBUTTONDOWN)received_click=true;if(m==WM_CLOSE){DestroyWindow(h);return 0;}if(m==WM_DESTROY){PostQuitMessage(0);return 0;}return DefWindowProcW(h,m,w,l);}
 int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR args,int){
     bool interactive=wcsstr(args,L"--smoke")==nullptr;
     const bool grid_test=wcsstr(args,L"--grid")!=nullptr, grid_moved=wcsstr(args,L"--moved")!=nullptr;
+    input_fixture=wcsstr(args,L"--input")!=nullptr;
     try{
         WNDCLASSW wc{};wc.hInstance=instance;wc.lpfnWndProc=wndproc;wc.lpszClassName=L"SketchDX12TestWindow";wc.hCursor=LoadCursorW(nullptr,IDC_ARROW);RegisterClassW(&wc);
         HWND window=CreateWindowW(wc.lpszClassName,L"沉星草稿 DirectX 12 测试",WS_OVERLAPPEDWINDOW,80,80,1100,760,nullptr,nullptr,instance,nullptr);
@@ -45,6 +47,15 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR args,int){
         }
         unsigned last=0;bool stop=false;
         for(unsigned frame=0;!stop&&(interactive||frame<240);++frame){
+            // Messages target only this test window; no desktop input/focus is changed.
+            if(input_fixture){
+                if(frame==75||frame==145)PostMessageW(window,WM_KEYDOWN,'W',1);
+                if(frame==78||frame==148)PostMessageW(window,WM_KEYUP,'W',1);
+                if(frame==85)PostMessageW(window,WM_KEYDOWN,'A',1);
+                if(frame==88)PostMessageW(window,WM_KEYUP,'A',1);
+                if(frame==95)PostMessageW(window,WM_LBUTTONDOWN,MK_LBUTTON,MAKELPARAM(600,300));
+                if(frame==98)PostMessageW(window,WM_LBUTTONUP,0,MAKELPARAM(600,300));
+            }
             MSG msg;while(PeekMessageW(&msg,nullptr,0,0,PM_REMOVE)){if(msg.message==WM_QUIT)stop=true;TranslateMessage(&msg);DispatchMessageW(&msg);}if(stop)break;
             if(frame==120&&!interactive){wait();for(auto&b:buffers)b.Reset();check(chain->ResizeBuffers(2,1000,700,sd.Format,0),"ResizeBuffers");acquire();}
             if(grid_test){
@@ -80,6 +91,8 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR args,int){
         for(UINT y=0;y<desc.Height;++y){std::vector<unsigned char>row(desc.Width*4);for(UINT x=0;x<desc.Width;++x){auto p=pixels+y*footprint.Footprint.RowPitch+x*4;row[x*4]=p[2];row[x*4+1]=p[1];row[x*4+2]=p[0];row[x*4+3]=255;if(y>80&&y<desc.Height-90&&(p[0]>140||p[1]>140||p[2]>140))++bright;}image.write(reinterpret_cast<char*>(row.data()),row.size());}
         readback->Unmap(0,nullptr);CloseHandle(event);DestroyWindow(window);
         std::ofstream result("dx12-test-result.txt");result<<"D3D12 frames presented: 240\nResizeBuffers: passed\nDevice removed reason: "<<device->GetDeviceRemovedReason()<<"\nBright pixels in draft area: "<<bright<<"\n";
-        if(bright<1000)throw std::runtime_error("No in-game draft pixels detected");result<<"PASS: native addon rendered into swap-chain back buffer\n";return 0;
+        if(bright<1000)throw std::runtime_error("No in-game draft pixels detected");result<<"PASS: native addon rendered into swap-chain back buffer\n";
+        if(input_fixture){if(!received_move||received_click)throw std::runtime_error("Input routing failed: game must receive W and must not receive drawing clicks");result<<"PASS: keyboard W reaches host while drawing mouse clicks are blocked\n";}
+        return 0;
     }catch(const std::exception&e){std::ofstream("dx12-test-error.txt")<<e.what();return 1;}
 }

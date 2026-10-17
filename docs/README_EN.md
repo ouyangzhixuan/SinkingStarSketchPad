@@ -1,4 +1,4 @@
-# SinkingStarSketchPad 3.2
+# SinkingStarSketchPad 3.3
 
 In-game drawing, scratch pages, a themed cursor, and cell-snapped route planning for **Order of the Sinking Star**. This is a native 64-bit ReShade add-on rendered into the game's DirectX 12 frame. It is not a separate desktop overlay.
 
@@ -17,7 +17,7 @@ In-game drawing, scratch pages, a themed cursor, and cell-snapped route planning
 3. Double-click **Install Mod.cmd**. It searches registered Steam libraries. If the game is not found, or there are multiple installations, drag the correct **sinking_star.exe** onto **Install Mod.cmd**.
 4. Start the game. Press **E** to open the drawing toolbar.
 
-The installer can upgrade known versions 2.1, 3.0, and 3.1. It preserves existing ReShade settings, drafts, exports, and language preferences. Changed add-on files and the pre-upgrade draft are copied to a timestamped `SinkingStarSketch-upgrade-*` folder in the game directory.
+The installer can upgrade known versions 2.1, 3.0, 3.1, and 3.2. It preserves drafts, exports, language preferences, and other ReShade settings. It backs up the old configuration and sets only `[INPUT] InputProcessing=1`, which is required for independent mouse/keyboard capture. Changed add-on files and the pre-upgrade draft are copied to a timestamped `SinkingStarSketch-upgrade-*` folder in the game directory.
 
 If a conflicting `dxgi.dll`, add-on, font, or `ReShade.ini` is found, the installer stops before copying any files. Do not overwrite another graphics mod's files to force installation. For an existing compatible ReShade setup, consult **Existing ReShade installations** below.
 
@@ -46,11 +46,11 @@ Other accepted values are `zh-CN` and `auto`. The setting changes the mod interf
 | Show or hide the mod cursor | G |
 | Show or hide all marks | B |
 | Cancel a stroke/text entry; otherwise return to the game | Esc |
-| Pen / line / arrow | P / L / A |
-| Rectangle / ellipse / text | R / O / T |
-| Whole-mark eraser / cell path | K / H |
+| Pen / line / arrow | Alt+P / Alt+L / Alt+A |
+| Rectangle / ellipse / text | Alt+R / Alt+O / Alt+T |
+| Whole-mark eraser / cell path | Alt+K / Alt+H |
 | Draw a stroke or shape | Hold and drag the left mouse button |
-| Choose one of five ink colors | 1-5 |
+| Choose one of five ink colors | Alt+1-5 |
 | Snap a line/arrow to 45 degrees; constrain rectangle/ellipse | Hold Shift |
 | Undo | Ctrl+Z or right-click on the canvas |
 | Redo | Ctrl+Y, or Ctrl+Shift+Z |
@@ -59,11 +59,11 @@ Other accepted values are `zh-CN` and `auto`. The setting changes the mod interf
 | Clear this page, with undo | Ctrl+Shift+Delete |
 | Finish text entry | Ctrl+Enter |
 
-E/G/B only trigger without Ctrl, Shift, or Alt, and pause while the text entry dialog is open. They were checked against the game's default keymaps; customized keymaps may conflict. Other tool shortcuts operate only while drawing mode captures input. Leave drawing mode with E to move the game's camera normally.
+E/G/B only trigger without Ctrl, Shift, or Alt, and pause while the text entry dialog is open. They were checked against the game's default keymaps; customized keymaps may conflict. While drawing, ordinary keyboard input continues to the game, including movement and camera controls. Use Alt+letter for tools and Alt+1-5 for colors to avoid triggering tools with game movement keys. The mod captures the keyboard while text entry is open or Ctrl/Alt is held for mod shortcuts. Custom game bindings may still overlap those chords. Mouse input is reserved for drawing; press E to use mouse controls in the game. Alt+Tab preserves drawing mode and text entry, commits and saves the current stroke, and pauses mouse interaction until the game is active again. Release held mouse buttons before drawing again.
 
 ## Cell paths that follow the camera
 
-1. Enter a level, press **E**, then **H** or click **Path H**.
+1. Enter a level, press **E**, then **Alt+H** or click **Path Alt+H**.
 2. Wait for **Auto grid** and **Game camera connected**. Detection generally needs a few seconds and enough regular game instances. No manual calibration is requested.
 3. Enable **Cell-center preview** to inspect the snap points near your mouse.
 4. Click a cell center to start a path. Click another cell in the same row or column to connect the intermediate centers.
@@ -71,7 +71,7 @@ E/G/B only trigger without Ctrl, Shift, or Alt, and pause while the text entry d
 6. Click **Finish / New path** to begin a separate route.
 7. Press **E** to return to the game. The path is stored using a world-space grid reference and is reprojected with the camera as it moves or zooms.
 
-Right-click/Ctrl+Z undoes the most recent path addition and ends the active path. K erases an entire path or mark. A path retains its own grid reference, so a later change in automatic detection does not move existing marks.
+Right-click/Ctrl+Z undoes the most recent path addition and ends the active path. Alt+K selects the whole-path/whole-mark eraser. A path retains its own grid reference, so a later change in automatic detection does not move existing marks.
 
 This tool marks routes only: it does not move the player, push boxes, check obstacles, or solve puzzles. Ordinary pen strokes, geometric shapes, and text are screen-space annotations and do not follow the world. Use a different scratch page for another level; pages are not automatically assigned to level names.
 
@@ -100,7 +100,7 @@ Player saves, drafts, language settings, and exports are preserved. A now-empty 
 
 For a fresh manual installation, copy the **contents** of `game_files` into the folder containing `sinking_star.exe`. The add-on and `dxgi.dll` must be next to the executable; keep the font in `SinkingStarSketch-assets`.
 
-If you already use ReShade, back up that setup and verify its version and **full add-on support** before proceeding. You may copy only `SinkingStarSketch.addon64` and the font assets into your existing installation, enable loading add-ons from the game folder, and keep your own `dxgi.dll` and `ReShade.ini`. Only the bundled 6.8.0 runtime has been validated here. Other ReShade versions and graphics proxy combinations are not verified. Select the bundled Noto font in ReShade's settings if Chinese glyphs are missing.
+If you already use ReShade, back up that setup and verify its version and **full add-on support** before proceeding. You may copy only `SinkingStarSketch.addon64` and the font assets into your existing installation, enable loading add-ons from the game folder, and keep your own `dxgi.dll` and other ReShade settings. Set `[INPUT] InputProcessing=1` in `ReShade.ini` before starting the game; mode 2 still blocks the keyboard during drawing, and mode 0 does not protect game mouse input. Only the bundled 6.8.0 runtime has been validated here. Other ReShade versions and graphics proxy combinations are not verified. Select the bundled Noto font in ReShade's settings if Chinese glyphs are missing.
 
 To disable a manual install, exit the game and move this add-on out of the game directory. Remove the bundled `dxgi.dll` only if it belongs to this mod's installation and is not shared by another setup.
 
