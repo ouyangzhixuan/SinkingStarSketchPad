@@ -1,0 +1,23 @@
+#include "../src/i18n.hpp"
+#include <iostream>
+#include <string>
+#include <stdexcept>
+using namespace sketch::i18n;
+void check(bool ok,const char *name){if(!ok)throw std::runtime_error(name);std::cout<<"PASS: "<<name<<'\n';}
+std::string formats(const std::string &s){
+    std::string result;
+    for(size_t i=0;i<s.size();++i)if(s[i]=='%'){
+        std::string token;token+=s[i++];
+        while(i<s.size()){token+=s[i];if(std::string("diuoxXfFeEgGaAcspn%").find(s[i])!=std::string::npos)break;++i;}
+        result+=token+';';
+    }return result;
+}
+int main(){try{
+    check(!use_chinese(Language::System,false)&&use_chinese(Language::System,true),"System language selects English or Chinese");
+    check(!use_chinese(Language::English,true)&&use_chinese(Language::Chinese,false),"Explicit language overrides system locale");
+    check(parse_language("en")==Language::English&&parse_language("zh-CN")==Language::Chinese&&parse_language("bad")==Language::System,"Settings codes round-trip and unknown values fall back safely");
+    for(const auto &entry:catalog){check(entry.en[0]&&entry.zh[0]&&formats(entry.en)==formats(entry.zh),"Translation pair preserves printf argument types");
+        for(unsigned char ch:std::string(entry.en))if(ch>=128)throw std::runtime_error("Non-ASCII English translation");}
+    check(std::string(get(Text::Title,false)).find("###SinkingStarSketch")!=std::string::npos&&std::string(get(Text::Title,true)).find("###SinkingStarSketch")!=std::string::npos,"Window identity stays stable when language changes");
+    std::cout<<"ALL LANGUAGE TESTS PASSED\n";return 0;
+}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

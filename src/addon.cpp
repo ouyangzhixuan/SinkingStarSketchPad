@@ -1,0 +1,374 @@
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#include <imgui.h>
+#include <reshade.hpp>
+#include "imgui_abi.hpp"
+#include "model.hpp"
+#include "i18n.hpp"
+#include "cursor_style.hpp"
+#include "camera_bridge.hpp"
+#include "grid_bridge.hpp"
+#include <chrono>
+#include <mutex>
+
+using reshade::api::effect_runtime;
+using namespace sketch;
+namespace {
+HMODULE module_handle;
+effect_runtime *primary = nullptr;
+std::recursive_mutex state_mutex;
+Document doc;
+std::array<History,3> history;
+std::filesystem::path data_path;
+i18n::Language language=i18n::Language::System;
+bool chinese(){return i18n::use_chinese(language,PRIMARYLANGID(GetUserDefaultUILanguage())==LANG_CHINESE);}
+const char *tr(i18n::Text text){return i18n::get(text,chinese());}
+using Label=i18n::Text;
+void load_language(){
+    wchar_t value[32];auto path=data_path.parent_path()/L"settings.ini";
+    GetPrivateProfileStringW(L"Interface",L"Language",L"auto",value,32,path.c_str());
+    language=_wcsicmp(value,L"en")==0?i18n::Language::English:_wcsicmp(value,L"zh-CN")==0?i18n::Language::Chinese:i18n::Language::System;
+}
+bool loaded=false, editing=false, visible=true, dirty=false, disabled=false, reshade_menu=false;
+bool dragging=false, erasing=false, text_open=false, text_focus=false, protected_file=false;
+Tool selected=Tool::Pen;
+unsigned selected_color=0;
+float width=3;
+Stroke pending;
+grid::Camera camera;
+grid::Detection detected_grid;
+bool path_active=false, grid_preview=true;
+void finish_path(){path_active=false;}
+void select_tool(Tool t){selected=t;finish_path();}
+Page erase_before;
+char text_buffer[2049]={};
+Point text_position;
+ULONGLONG save_due=0, toast_until=0, frame_count=0;
+std::string toast;
+constexpr ImU32 colors[] = {IM_COL32(255,218,105,255),IM_COL32(109,227,255,255),IM_COL32(255,130,158,255),IM_COL32(152,237,172,255),IM_COL32(255,255,255,255)};
+Page &page() { return doc.pages[doc.page]; }
+void note(const std::string &s, unsigned ms=4500) { toast=s; toast_until=GetTickCount64()+ms; }
+void log(const std::string &s) { reshade::log::message(reshade::log::level::info,s.c_str()); }
+void status() {
+    if (data_path.empty()) return;
+    std::ofstream f(data_path.parent_path()/L"status.txt");
+    f << "version=3.2\nprocess=" << GetCurrentProcessId() << "\nrenderer=DirectX12\nediting=" << editing
+      << "\npage=" << doc.page+1 << "\nstrokes=" << page().size() << "\ncursor=" << doc.cursor
+      << "\nlanguage=" << i18n::language_code(language) << "\nui_language=" << (chinese()?"zh-CN":"en") << "\nvisible=" << visible << "\nframes=" << frame_count << "\ncamera=" << camera.valid << "\ncamera_frame=" << camera.frame << "\ngrid=" << detected_grid.lattice.ready << "\ngrid_centers=" << detected_grid.centers << "\n";
+}
+void set_language(i18n::Language value){
+    language=value;auto path=data_path.parent_path()/L"settings.ini";
+    const wchar_t *code=value==i18n::Language::English?L"en":value==i18n::Language::Chinese?L"zh-CN":L"auto";
+    if(!WritePrivateProfileStringW(L"Interface",L"Language",code,path.c_str()))note(tr(Label::SettingsFailed));
+    status();
+}
+void changed() { dirty=true; save_due=GetTickCount64()+700; status(); }
+bool save() {
+    if (!dirty) return true;
+    try {
+        if (protected_file) throw std::runtime_error("Old draft is unreadable and could not be backed up");
+        const auto temp=data_path.wstring()+L".tmp", backup=data_path.wstring()+L".bak";
+        { std::ofstream out(temp.c_str(),std::ios::binary|std::ios::trunc); doc.write(out); out.flush(); if(!out) throw std::runtime_error("Write failed"); }
+        HANDLE file=CreateFileW(temp.c_str(),GENERIC_WRITE,FILE_SHARE_READ,nullptr,OPEN_EXISTING,0,nullptr);
+        if(file==INVALID_HANDLE_VALUE) throw std::runtime_error("Cannot flush draft");
+        const bool flushed=FlushFileBuffers(file)!=FALSE; CloseHandle(file);
+        if(!flushed) throw std::runtime_error("Flush failed");
+        BOOL ok;
+        if(std::filesystem::exists(data_path)) ok=ReplaceFileW(data_path.c_str(),temp.c_str(),backup.c_str(),0,nullptr,nullptr);
+        else ok=MoveFileExW(temp.c_str(),data_path.c_str(),MOVEFILE_WRITE_THROUGH);
+        if(!ok) throw std::runtime_error("Cannot replace draft file: "+std::to_string(GetLastError()));
+        dirty=false; return true;
+    } catch(const std::exception &e) { note(std::string(tr(Label::SaveFailed))+e.what(),15000); log(toast); save_due=GetTickCount64()+15000; return false; }
+}
+void load() {
+    wchar_t path[32768]; DWORD n=GetModuleFileNameW(module_handle,path,32768);
+    if(!n || n>=32768) throw std::runtime_error("Cannot locate addon directory");
+    auto dir=std::filesystem::path(path).parent_path()/L"SinkingStarSketch-data";
+    std::filesystem::create_directories(dir); data_path=dir/L"drafts.txt";load_language();
+    auto read=[](const std::filesystem::path &p) {
+        if(std::filesystem::file_size(p)>16*1024*1024) throw std::runtime_error("Draft file too large");
+        std::ifstream in(p,std::ios::binary); return Document::read(in);
+    };
+    if(std::filesystem::exists(data_path)) {
+        try { doc=read(data_path); }
+        catch(const std::exception &) {
+            std::error_code ec;
+            auto keep=data_path.wstring()+L".unreadable-"+std::to_wstring(GetTickCount64());
+            std::filesystem::copy_file(data_path,keep,std::filesystem::copy_options::none,ec);
+            protected_file=bool(ec);
+            try { doc=read(data_path.wstring()+L".bak"); note(tr(Label::Recovered),8000); }
+            catch(...) { note(tr(Label::Unreadable),10000); }
+        }
+    }
+    loaded=true; status(); log("SinkingStarSketchPad initialized; rendering inside the game swap chain.");
+}
+void commit() {
+    if(dragging) {
+        if(page().size()<2000 && doc.point_count()+pending.points.size()<=120000) {
+            history[doc.page].record(page()); page().push_back(std::make_shared<const Stroke>(std::move(pending))); changed();
+        } else note(tr(Label::Full));
+        dragging=false;
+    }
+    if(erasing) { if(page().size()!=erase_before.size()) { history[doc.page].record(erase_before); changed(); } erasing=false; erase_before.clear(); }
+}
+void cancel() { dragging=false; if(erasing) {page()=std::move(erase_before); erasing=false;} }
+void finish_text() {
+    if(text_buffer[0] && page().size()<2000 && doc.point_count()<120000) {
+        Stroke s; s.tool=Tool::Text;s.color=selected_color;s.width=width;s.points={text_position};s.text=text_buffer;
+        history[doc.page].record(page());page().push_back(std::make_shared<const Stroke>(std::move(s)));changed();
+    }
+    text_open=false; text_buffer[0]=0;
+}
+void set_edit(bool value) { commit(); if(text_open) finish_text(); editing=value;if(value)visible=true;status();if(!value)save(); }
+void undo() { finish_path(); cancel(); if(history[doc.page].back(page()))changed(); }
+void redo() { finish_path(); cancel(); if(history[doc.page].forward(page()))changed(); }
+void clear() { finish_path(); commit(); if(!page().empty()){history[doc.page].record(page());page().clear();changed();note(tr(Label::Cleared));} }
+ImVec2 v(Point p) {return ImVec2(p.x,p.y);}
+void polyline(ImDrawList *draw,const std::vector<Point>&p,ImU32 color,float w) {
+    if(p.empty())return;
+    if(p.size()==1){draw->AddCircleFilled(v(p[0]),w*.5f,color);return;}
+    std::vector<ImVec2> vertices;vertices.reserve(p.size());for(auto a:p)vertices.push_back(v(a));
+    draw->AddPolyline(vertices.data(),static_cast<int>(vertices.size()),color,ImDrawFlags_None,w);
+}
+std::vector<Point> projected(const Stroke &s,Point size){
+    if(s.tool!=Tool::Path)return outline(s,size);
+    std::vector<Point> result;if(!camera.valid)return result;
+    for(const auto &p:s.points){double x,y;if(!camera.project(s.lattice.world(p.x,p.y),x,y))return {};result.push_back({float(x*size.x),float(y*size.y)});}
+    return result;
+}
+void path_click(Point mouse,Point size){
+    if(!camera.valid){note(tr(Label::NoCamera));return;}
+    double x=mouse.x/size.x,y=mouse.y/size.y;
+    auto &g=doc.grids[doc.page];
+    if(!detected_grid.lattice.ready){note(tr(Label::Detecting),6000);return;}
+    double i,j;if(!g.snap(camera,x,y,i,j)){note(tr(Label::NoPlane));return;}
+    Point target{float(i),float(j)};
+    const bool append=path_active&&!page().empty()&&page().back()->tool==Tool::Path;
+    auto stroke=append?std::make_shared<Stroke>(*page().back()):std::make_shared<Stroke>();
+    if(!append){stroke->tool=Tool::Path;stroke->color=selected_color;stroke->width=width;stroke->lattice=g;}
+    size_t extra=1;
+    if(append){
+        auto last=stroke->points.back();int dx=int(target.x-last.x),dy=int(target.y-last.y);
+        if(!dx&&!dy)return;
+        if(dx&&dy){note(tr(Label::NeedCorner));return;}
+        extra=size_t(std::abs(dx)+std::abs(dy));
+        if(extra>1000){note(tr(Label::TooFar));return;}
+        if(stroke->points.size()+extra>10000||doc.point_count()+extra>120000){note(tr(Label::PathFull));return;}
+        for(size_t n=1;n<=extra;++n)stroke->points.push_back({last.x+float((dx>0)-(dx<0))*float(n),last.y+float((dy>0)-(dy<0))*float(n)});
+    }else stroke->points.push_back(target);
+    if((!append&&page().size()>=2000)||doc.point_count()+extra>120000){note(tr(Label::Full));return;}
+    history[doc.page].record(page());if(append)page().back()=stroke;else page().push_back(stroke);
+    path_active=true;changed();
+}
+void draw_grid_preview(ImDrawList *draw,Point mouse,Point size){
+    if(selected!=Tool::Path||!camera.valid)return;
+    if(!detected_grid.lattice.ready)return;const auto &g=doc.grids[doc.page];double i,j;if(!g.snap(camera,mouse.x/size.x,mouse.y/size.y,i,j))return;
+    if(grid_preview)for(int a=-5;a<=5;++a)for(int b=-5;b<=5;++b){double x,y;if(camera.project(g.world(i+a,j+b),x,y))draw->AddCircleFilled(ImVec2(float(x*size.x),float(y*size.y)),2,IM_COL32(109,227,255,115));}
+    double x,y;if(camera.project(g.world(i,j),x,y))draw->AddCircle(ImVec2(float(x*size.x),float(y*size.y)),9,colors[selected_color],24,2.5f);
+}
+void draw_stroke(ImDrawList *draw,const Stroke&s,Point size) {
+    auto a=pixel(s.points.front(),size),b=pixel(s.points.back(),size);
+    ImU32 c=colors[s.color],shadow=IM_COL32(9,14,23,210);
+    if(s.tool==Tool::Text) {
+        float fs=std::max(20.f,s.width*4+12);
+        draw->AddText(ImGui::GetFont(),fs,ImVec2(a.x+1.5f,a.y+1.5f),shadow,s.text.c_str());
+        draw->AddText(ImGui::GetFont(),fs,v(a),c,s.text.c_str());return;
+    }
+    auto p=projected(s,size);polyline(draw,p,shadow,s.width+3);polyline(draw,p,c,s.width);
+    if(s.tool==Tool::Path){
+        for(size_t i=0;i<p.size();++i){draw->AddCircleFilled(v(p[i]),5,shadow);draw->AddCircleFilled(v(p[i]),3, c);}
+        if(!p.empty()){draw->AddCircle(v(p.front()),8,c,24,2);draw->AddCircle(v(p.back()),6,c,24,2);}
+    }
+    if(s.tool==Tool::Arrow) {
+        float length=distance(a,b);if(length<2)return;
+        float dx=(b.x-a.x)/length,dy=(b.y-a.y)/length,head=std::min(std::max(13.f,s.width*4),length*.6f);
+        std::vector<Point> tips={{b.x-dx*head-dy*head*.5f,b.y-dy*head+dx*head*.5f},b,{b.x-dx*head+dy*head*.5f,b.y-dy*head-dx*head*.5f}};
+        polyline(draw,tips,shadow,s.width+3);polyline(draw,tips,c,s.width);
+    }
+}
+void erase_at(Point p,Point size) {
+    auto &marks=page();
+    marks.erase(std::remove_if(marks.begin(),marks.end(),[&](const auto&s){
+        if(s->tool==Tool::Text) {
+            Point a=pixel(s->points[0],size);ImVec2 measure=gui_text_size(s->text.c_str());float scale=std::max(20.f,s->width*4+12)/ImGui::GetFontSize();
+            return p.x>=a.x-8&&p.y>=a.y-8&&p.x<=a.x+measure.x*scale+8&&p.y<=a.y+measure.y*scale+8;
+        }
+        if(s->tool==Tool::Path){auto pts=projected(*s,size);if(pts.size()==1)return distance(pts[0],p)<=s->width*.5f+9;
+            for(size_t n=1;n<pts.size();++n)if(segment_distance(p,pts[n-1],pts[n])<=s->width*.5f+9)return true;return false;}
+        return hit(*s,p,size);
+    }),marks.end());
+}
+void export_svg(Point size) {
+    try {
+        std::filesystem::path outdir=data_path.parent_path()/L"exports";std::filesystem::create_directories(outdir);
+        std::ofstream out(outdir/(L"draft-"+std::to_wstring(doc.page+1)+L"-"+std::to_wstring(GetTickCount64())+L".svg"));
+        out<<"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\""<<size.x<<"\" height=\""<<size.y<<"\" viewBox=\"0 0 "<<size.x<<' '<<size.y<<"\">\n";
+        const char *hex[]={"#ffda69","#6de3ff","#ff829e","#98edac","#ffffff"};
+        for(const auto&s:page()) {
+            auto p=projected(*s,size);if(p.empty())continue;const char *c=hex[s->color];
+            if(s->tool==Tool::Text) {
+                out<<"<text x=\""<<p[0].x<<"\" y=\""<<p[0].y+std::max(20.f,s->width*4+12)<<"\" fill=\""<<c<<"\" font-size=\""<<std::max(20.f,s->width*4+12)<<"\" font-family=\"Microsoft YaHei,sans-serif\" xml:space=\"preserve\">";
+                for(char ch:s->text){if(ch=='&')out<<"&amp;";else if(ch=='<')out<<"&lt;";else if(ch=='>')out<<"&gt;";else if(ch=='\n')out<<"<tspan x=\""<<p[0].x<<"\" dy=\"1.2em\">&#160;</tspan>";else out<<ch;}out<<"</text>\n";
+            } else {
+                if(p.size()==1)out<<"<circle cx=\""<<p[0].x<<"\" cy=\""<<p[0].y<<"\" r=\""<<s->width*.5f<<"\" fill=\""<<c<<"\"/>\n";
+                else {out<<"<polyline fill=\"none\" stroke=\""<<c<<"\" stroke-width=\""<<s->width<<"\" stroke-linecap=\"round\" stroke-linejoin=\"round\" points=\"";for(auto pt:p)out<<pt.x<<','<<pt.y<<' ';out<<"\"/>\n";}
+                if(s->tool==Tool::Arrow&&p.size()==2){Point a=p[0],b=p[1];float len=distance(a,b);if(len>2){float dx=(b.x-a.x)/len,dy=(b.y-a.y)/len,head=std::min(std::max(13.f,s->width*4),len*.6f);out<<"<polyline fill=\"none\" stroke=\""<<c<<"\" stroke-width=\""<<s->width<<"\" points=\""<<b.x-dx*head-dy*head*.5f<<','<<b.y-dy*head+dx*head*.5f<<' '<<b.x<<','<<b.y<<' '<<b.x-dx*head+dy*head*.5f<<','<<b.y-dy*head-dx*head*.5f<<"\"/>\n";}}
+            }
+        }
+        out<<"</svg>\n";out.flush();if(!out)throw std::runtime_error("Export failed");note(tr(Label::Exported));
+    }catch(const std::exception&e){note(std::string(tr(Label::ExportFailed))+e.what());}
+}
+bool in_rect(Point p,ImVec2 a,ImVec2 b){return p.x>=a.x&&p.y>=a.y&&p.x<=b.x&&p.y<=b.y;}
+void controls(effect_runtime*rt,Point size,Point mouse,bool &over_ui) {
+    ImGui::SetNextWindowPos(ImVec2(24,std::max(20.f,size.y-365)),ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowBgAlpha(.96f);
+    ImGui::Begin(tr(Label::Title),nullptr,ImGuiWindowFlags_AlwaysAutoResize|ImGuiWindowFlags_NoCollapse|ImGuiWindowFlags_NoSavedSettings);
+    ImGui::SetNextItemWidth(195);int choice=static_cast<int>(language);
+    const char *languages[]={"System / 系统","English","简体中文 / Chinese"};
+    if(ImGui::Combo("Language / 语言###SketchLanguage",&choice,languages,3))set_language(static_cast<i18n::Language>(choice));
+    const char *labels[]={tr(Label::Pen),tr(Label::Line),tr(Label::Arrow),tr(Label::Rectangle),tr(Label::Ellipse),tr(Label::Text),tr(Label::Eraser),tr(Label::Path)};
+    for(unsigned i=0;i<8;++i){if(i)ImGui::SameLine();const bool active=selected==Tool(i);if(active)ImGui::PushStyleColor(ImGuiCol_Button,ImVec4(.46f,.36f,.18f,1));if(ImGui::Button(labels[i])){commit();select_tool(Tool(i));}if(active)ImGui::PopStyleColor();}
+    for(unsigned i=0;i<5;++i){if(i)ImGui::SameLine();ImGui::PushID(int(i));auto c=ImGui::ColorConvertU32ToFloat4(colors[i]);if(ImGui::ColorButton(tr(Label::Color),c,0,ImVec2(28,25)))selected_color=i;ImGui::PopID();}
+    ImGui::SameLine();ImGui::SetNextItemWidth(145);ImGui::SliderFloat(tr(Label::Width),&width,1,16,"%.0f");
+    ImGui::SameLine();if(ImGui::Button(tr(Label::Undo)))undo();ImGui::SameLine();if(ImGui::Button(tr(Label::Redo)))redo();ImGui::SameLine();if(ImGui::Button(tr(Label::Clear)))clear();
+    for(unsigned i=0;i<3;++i){if(i)ImGui::SameLine();std::string label=tr(Label::Page)+std::to_string(i+1);if(ImGui::RadioButton(label.c_str(),doc.page==i)){commit();finish_path();doc.page=i;changed();}}
+    ImGui::SameLine();if(ImGui::Button(tr(Label::Save))){commit();if(save())note(tr(Label::Saved));}
+    ImGui::SameLine();if(ImGui::Button(tr(Label::Export))){commit();export_svg(size);}
+    ImGui::SameLine();if(ImGui::Button(tr(Label::Return)))set_edit(false);
+    ImGui::TextUnformatted(tr(Label::Help));
+    ImGui::Text(tr(Label::Stats),doc.page+1,page().size(),dirty?tr(Label::Saving):tr(Label::Saved));
+    if(selected==Tool::Path){
+        if(ImGui::Button(tr(Label::NewPath)))finish_path();
+        ImGui::SameLine();ImGui::Checkbox(tr(Label::GridPreview),&grid_preview);
+        if(detected_grid.lattice.ready){ImGui::Text(tr(Label::GridStats),detected_grid.lattice.u.x,detected_grid.centers);ImGui::TextUnformatted(tr(Label::PathHelp));}
+        else ImGui::TextUnformatted(tr(Label::GridWait));
+        ImGui::TextDisabled("%s",camera.valid?tr(Label::CameraReady):tr(Label::CameraWait));
+    }else ImGui::TextDisabled("%s",tr(Label::Anchoring));
+    auto pos=gui_vec2(imgui_function_table_instance()->GetWindowPos),extent=gui_vec2(imgui_function_table_instance()->GetWindowSize);over_ui=in_rect(mouse,pos,ImVec2(pos.x+extent.x,pos.y+extent.y));
+    ImGui::End();
+    if(text_open) {
+        ImGui::SetNextWindowPos(ImVec2(std::clamp(mouse.x,20.f,std::max(20.f,size.x-450)),std::clamp(mouse.y,20.f,std::max(20.f,size.y-250))),ImGuiCond_Appearing);
+        ImGui::Begin(tr(Label::TextTitle),nullptr,ImGuiWindowFlags_AlwaysAutoResize|ImGuiWindowFlags_NoSavedSettings);
+        if(text_focus){ImGui::SetKeyboardFocusHere();text_focus=false;}
+        ImGui::InputTextMultiline("##text",text_buffer,sizeof(text_buffer),ImVec2(400,120));
+        if(ImGui::Button(tr(Label::Done)))finish_text();ImGui::SameLine();if(ImGui::Button(tr(Label::Cancel))){text_open=false;text_buffer[0]=0;}
+        pos=gui_vec2(imgui_function_table_instance()->GetWindowPos);extent=gui_vec2(imgui_function_table_instance()->GetWindowSize);over_ui|=in_rect(mouse,pos,ImVec2(pos.x+extent.x,pos.y+extent.y));ImGui::End();
+    }
+}
+void keys(effect_runtime*rt) {
+    const bool ctrl=rt->is_key_down(VK_CONTROL),shift=rt->is_key_down(VK_SHIFT),alt=rt->is_key_down(VK_MENU);
+    // These single-letter shortcuts must never consume text or modifier chords.
+    if(!text_open&&!ctrl&&!shift&&!alt) {
+        if(rt->is_key_pressed('G')){doc.cursor=!doc.cursor;changed();}
+        if(rt->is_key_pressed('E'))set_edit(!editing);
+        if(rt->is_key_pressed('B')){if(editing)set_edit(false);visible=!visible;status();}
+    }
+    if(!editing)return;
+    if(rt->is_key_pressed(VK_ESCAPE)){if(text_open){text_open=false;text_buffer[0]=0;}else if(dragging||erasing)cancel();else set_edit(false);return;}
+    if(text_open){if(ctrl&&rt->is_key_pressed(VK_RETURN))finish_text();return;}
+    if(ctrl){
+        if(rt->is_key_pressed('Z')){if(shift)redo();else undo();}
+        if(rt->is_key_pressed('Y'))redo();
+        if(rt->is_key_pressed('S')){commit();if(save())note(tr(Label::Saved));}
+        if(shift&&rt->is_key_pressed(VK_DELETE))clear();
+        for(unsigned i=0;i<3;++i)if(rt->is_key_pressed('1'+i)){commit();finish_path();doc.page=i;changed();}
+    }else{
+        const int codes[]={'P','L','A','R','O','T','K','H'};
+        for(unsigned i=0;i<8;++i)if(rt->is_key_pressed(codes[i])){commit();select_tool(Tool(i));}
+        for(unsigned i=0;i<5;++i)if(rt->is_key_pressed('1'+i))selected_color=i;
+    }
+}
+void canvas(effect_runtime*rt,Point size,Point mouse,bool over_ui) {
+    bool left=ImGui::IsMouseDown(ImGuiMouseButton_Left);
+    if(!text_open && ImGui::IsMouseClicked(ImGuiMouseButton_Right) && !over_ui){undo();return;}
+    if(!text_open&&!over_ui&&ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+        if(selected==Tool::Path){path_click(mouse,size);return;}
+        if(selected==Tool::Text){text_position=normal(mouse,size);text_buffer[0]=0;text_open=true;text_focus=true;return;}
+        if(selected==Tool::Eraser){erase_before=page();erasing=true;}
+        else {pending=Stroke();pending.tool=selected;pending.color=selected_color;pending.width=width;pending.points.push_back(normal(mouse,size));if(selected!=Tool::Pen)pending.points.push_back(normal(mouse,size));dragging=true;}
+    }
+    if(erasing)erase_at(mouse,size);
+    if(dragging) {
+        Point p=mouse;
+        if(pending.tool==Tool::Pen){if(distance(pixel(pending.points.back(),size),p)>=1.4f&&pending.points.size()<10000)pending.points.push_back(normal(p,size));}
+        else {if(rt->is_key_down(VK_SHIFT))p=snapped(pixel(pending.points[0],size),p,pending.tool==Tool::Rectangle||pending.tool==Tool::Ellipse);pending.points[1]=normal(p,size);}
+    }
+    if(!left&&(dragging||erasing))commit();
+}
+void cursor(ImDrawList*draw,Point p) {
+    const auto mode=!editing?cursor_style::Mode::Pointer:(selected==Tool::Eraser?cursor_style::Mode::Eraser:cursor_style::Mode::Drawing);
+    float scale=std::clamp(ImGui::GetIO().DisplaySize.y/1440.f,1.f,1.5f);
+    cursor_style::draw(draw,v(p),mode,colors[selected_color],scale);
+}
+void overlay(effect_runtime*rt) {
+    std::lock_guard<std::recursive_mutex> lock(state_mutex);
+    if(disabled)return;
+    if(primary==nullptr){if(rt->get_device()->get_api()!=reshade::api::device_api::d3d12)return;primary=rt;}
+    if(rt!=primary)return;
+    try {
+        if(!loaded)load();
+        ++frame_count;if(frame_count==30)status();
+        ImGuiIO &io=ImGui::GetIO();Point size={io.DisplaySize.x,io.DisplaySize.y};if(size.x<1||size.y<1)return;
+        camera=camera_bridge::snapshot(size.x,size.y);detected_grid=grid_bridge::snapshot();
+        if(camera.valid&&detected_grid.lattice.ready){
+            auto &g=doc.grids[doc.page];const auto &found=detected_grid.lattice;
+            if(!g.ready||grid::length(g.origin-found.origin)>.002||grid::length(g.u-found.u)>.002||grid::length(g.v-found.v)>.002){g=found;finish_path();changed();}
+        }
+        if(frame_count%120==0)status();
+        HWND window=static_cast<HWND>(rt->get_hwnd());bool foreground=GetForegroundWindow()==window;
+        // ReShade virtualizes Win32 GetCursorPos while it blocks game input.
+        // Its ImGui input has the real client position, already scaled to this back buffer.
+        Point mouse={io.MousePos.x,io.MousePos.y};
+        if(!foreground && editing)set_edit(false);
+        if(foreground&&!reshade_menu)keys(rt);
+        bool over_ui=false;
+        if(editing&&!reshade_menu) {
+            rt->block_input_next_frame();ImGui::SetNextFrameWantCaptureMouse(true);ImGui::SetNextFrameWantCaptureKeyboard(true);
+            controls(rt,size,mouse,over_ui);
+            if(editing)canvas(rt,size,mouse,over_ui);
+        }
+        ImDrawList *draw=ImGui::GetBackgroundDrawList();
+        if(visible){for(const auto&s:page())draw_stroke(draw,*s,size);if(dragging)draw_stroke(draw,pending,size);}
+        if(editing&&!over_ui&&!reshade_menu)draw_grid_preview(draw,mouse,size);
+        if(foreground&&!reshade_menu&&(doc.cursor||editing)&&mouse.x>=0&&mouse.y>=0&&mouse.x<size.x&&mouse.y<size.y)cursor(ImGui::GetForegroundDrawList(),mouse);
+        if(!editing&&!reshade_menu){ImDrawList*d=ImGui::GetForegroundDrawList();float right=std::min(size.x-18.f,42.f+gui_text_size(tr(Label::Hud)).x);d->AddRectFilled(ImVec2(18,size.y-47),ImVec2(right,size.y-14),IM_COL32(18,27,41,205),7);d->AddText(ImVec2(30,size.y-41),colors[0],tr(Label::Hud));}
+        if(GetTickCount64()<toast_until){ImGui::SetNextWindowPos(ImVec2(size.x*.5f,22),ImGuiCond_Always,ImVec2(.5f,0));ImGui::Begin("##SketchToast",nullptr,ImGuiWindowFlags_NoDecoration|ImGuiWindowFlags_AlwaysAutoResize|ImGuiWindowFlags_NoInputs|ImGuiWindowFlags_NoSavedSettings);ImGui::TextUnformatted(toast.c_str());ImGui::End();}
+        if(dirty&&!dragging&&!erasing&&GetTickCount64()>=save_due)save();
+    } catch(const std::exception&e) {log(std::string("Sketch disabled after error: ")+e.what());disabled=true;editing=false;}
+    catch(...) {log("Sketch disabled after unexpected exception");disabled=true;editing=false;}
+}
+bool opened(effect_runtime*rt,bool open,reshade::api::input_source) {
+    std::lock_guard<std::recursive_mutex> lock(state_mutex);
+    if(rt==primary){reshade_menu=open;if(open)set_edit(false);}return false;
+}
+void destroyed(effect_runtime*rt) {
+    std::lock_guard<std::recursive_mutex> lock(state_mutex);
+    if(rt==primary){commit();if(text_open)finish_text();save();primary=nullptr;editing=false;reshade_menu=false;}
+}
+}
+extern "C" __declspec(dllexport) const char *NAME="SinkingStarSketchPad";
+extern "C" __declspec(dllexport) const char *DESCRIPTION="In-game drawing, scratch pages and cell-snapped paths for Order of the Sinking Star. English and Simplified Chinese.";
+extern "C" __declspec(dllexport) bool AddonInit(HMODULE addon,HMODULE reshade_module) {
+    wchar_t process[32768];GetModuleFileNameW(nullptr,process,32768);const auto name=std::filesystem::path(process).filename().wstring();
+    if(_wcsicmp(name.c_str(),L"sinking_star.exe")!=0&&_wcsicmp(name.c_str(),L"SketchDX12Test.exe")!=0)return false;
+    module_handle=addon;
+    if(!reshade::register_addon(addon,reshade_module))return false;
+    grid_bridge::start();
+    reshade::register_event<reshade::addon_event::copy_buffer_region>(grid_bridge::copied);
+    reshade::register_event<reshade::addon_event::update_descriptor_tables>(camera_bridge::updated);
+    reshade::register_event<reshade::addon_event::reshade_overlay>(overlay);
+    reshade::register_event<reshade::addon_event::reshade_open_overlay>(opened);
+    reshade::register_event<reshade::addon_event::destroy_effect_runtime>(destroyed);
+    log("SinkingStarSketchPad 3.2 loaded (E: draw, G: cursor, B: visibility).");return true;
+}
+extern "C" __declspec(dllexport) void AddonUninit(HMODULE addon,HMODULE) {
+    reshade::unregister_event<reshade::addon_event::reshade_overlay>(overlay);
+    reshade::unregister_event<reshade::addon_event::reshade_open_overlay>(opened);
+    reshade::unregister_event<reshade::addon_event::destroy_effect_runtime>(destroyed);
+    reshade::unregister_event<reshade::addon_event::update_descriptor_tables>(camera_bridge::updated);
+    reshade::unregister_event<reshade::addon_event::copy_buffer_region>(grid_bridge::copied);
+    grid_bridge::cleanup();
+    camera_bridge::cleanup();
+    reshade::unregister_addon(addon);
+}
