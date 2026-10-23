@@ -1,0 +1,34 @@
+SinkingStarSketchPad 3.4.5 — 手动安装
+
+本包不包含也不需要 CMD、批处理、PowerShell 或 EXE 安装程序。
+
+首次安装（没有其他 ReShade 或图形代理）：
+1. 保存进度，正常完全退出游戏，解压本 ZIP。
+2. 打开包含 sinking_star.exe 的游戏目录。修改前先备份已有图形 Mod 文件。
+3. 将 game_files 文件夹里面的内容复制到该目录：
+   dxgi.dll
+   SinkingStarSketch.addon64
+   ReShade.ini
+   SinkingStarSketch-assets\NotoSansCJKsc-Regular.otf
+   保持字体子目录完整；不要只复制字体，也不要把整个 game_files 文件夹原样放在 EXE 旁边。
+4. 启动游戏：E 打开绘图，G 指针显隐，B 草稿显隐；Alt+字母选择工具，Alt+H 为路径。
+
+升级或已有 ReShade：
+1. 退出游戏，将旧插件、ReShade.ini、字体和 SinkingStarSketch-data 备份到游戏目录之外。
+2. 从 game_files 复制 SinkingStarSketch.addon64 和 SinkingStarSketch-assets 文件夹到游戏目录，保留原 SinkingStarSketch-data。
+3. 保留已有的 dxgi.dll 和 ReShade.ini。仅验证了附带的 ReShade 6.8.0 完整插件运行库；其他 ReShade 设置需先核对兼容性，不要覆盖来源不明的图形代理。
+4. 用文本编辑器打开 ReShade.ini，在已有 [INPUT] 节下把 InputProcessing 改为 1，替换旧值，不要重复添加键。没有 [INPUT] 时添加：
+   [INPUT]
+   InputProcessing=1
+   设为 2 会继续屏蔽绘图时的键盘；设为 0 则鼠标绘图会影响游戏。
+5. 确保 ReShade 从游戏目录加载插件。中文缺字时，在 ReShade 字体设置里选择 SinkingStarSketch-assets/NotoSansCJKsc-Regular.otf，然后重启游戏。
+
+卸载或停用：
+退出游戏，把 SinkingStarSketch.addon64 移到游戏目录之外即可停用草稿功能。保留 SinkingStarSketch-data，以保留草稿、偏好与导出。
+如需一并移除首次安装附带的 ReShade，先确认没有其他 Mod 共用，再移出本包的 dxgi.dll、ReShade.ini 和字体资源；原有图形设置可从此前的备份恢复。
+
+本次新增实验性自由相机，插件二进制已更新。完整操作和兼容说明见 README_zh-CN.md。
+
+自由相机（实验功能）：T 开关；WASD 平移，Q/Z 升降，Shift 加速，右键拖动旋转/俯仰，滚轮缩放，Esc 恢复游戏视角；E 开关绘图，Ctrl+Z 撤销笔迹。开启时接管键鼠，大幅视角变化可能受游戏原有裁剪、阴影、反射限制，详见 README_zh-CN.md。
+
+3.4.5：降低默认移动、旋转和缩放速度，加入俯仰限制；相机面板可独立勾选“反转鼠标 X 轴 / Y 轴”。速度、灵敏度和轴向设置自动保存。

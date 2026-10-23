@@ -8,6 +8,7 @@ An in-game sketchpad for **Order of the Sinking Star**: draw ideas, add text not
 
 ## Features
 
+- Experimental free camera: pan, rise/lower, orbit/tilt, lens zoom and restore, sharing the world-path projection.
 - Crystal-blade pointer, star drawing crosshair, and rune-ring eraser.
 - Pen, lines, arrows, rectangles, ellipses, text, and whole-mark erasing.
 - Three automatically saved scratch pages, undo/redo, and SVG export.
@@ -19,11 +20,15 @@ An in-game sketchpad for **Order of the Sinking Star**: draw ideas, add text not
 
 ## Use
 
-For a prebuilt release package, follow its `Install Mod.cmd` instructions after exiting the game. Do not copy a GitHub source ZIP into the game as if it were a prebuilt mod.
+For a prebuilt manual release, exit the game and copy the contents of `game_files` beside `sinking_star.exe`, following `INSTALL_EN.txt`. For upgrades, preserve existing settings and drafts and set `[INPUT] InputProcessing=1` in `ReShade.ini`. No installation script is required. Do not copy a GitHub source ZIP into the game as if it were a prebuilt mod.
 
 Press **E** to open/close the toolbar, **G** for cursor visibility, and **B** for mark visibility. **E → Alt+H** selects cell paths. Keyboard movement and camera controls remain available while drawing. Alt+letter selects a tool; Alt+1-5 selects ink. Alt+Tab keeps drawing mode and commits the current stroke. Choose the interface language in **Language / 语言**. See the [full English guide](docs/README_EN.md) for installation, upgrades, existing ReShade setups, controls, and uninstalling.
 
 The compatible add-on filename and persistent data folder remain `SinkingStarSketch.addon64` and `SinkingStarSketch-data` so existing drafts and preferences continue to work.
+
+Version 3.4.5 adds gentler defaults, tilt limits, adjustable mouse sensitivity and separate **Invert mouse X/Y** settings, saved across restarts.
+
+Free camera: **T**, WASD pan, Q/Z up/down, right-drag orbit/tilt, wheel zoom, Esc restore. It defaults off and captures keyboard/mouse while active. This is a render-camera override; game-side culling, shadows, reflections and mouse picking may not follow large changes. The user confirmed actual-game camera movement with the 3.4.4 fix on 23 October 2026. This fixes the CPU-upload-to-GPU camera path missed by earlier builds; broader visual compatibility remains experimental.
 
 ## Build from source
 
@@ -40,6 +45,14 @@ The add-on is written to `build/SinkingStarSketch.addon64`. Do not substitute an
 
 To test in game, exit the game, back up an existing setup, install the compatible **ReShade 6.8.0 full add-on support** runtime, then place the built add-on beside `sinking_star.exe`. Keep compatible ReShade settings and a suitable UI font. The source repository does not include runtime DLLs, font binaries, game files, or a compiler. See [third-party components](THIRD_PARTY_NOTICES.md) for their official sources.
 
+The native free-camera integration test renders a checkerboard and verifies both GPU geometry and world-path projection before/during camera changes and after restore, including resize:
+
+```powershell
+.\tests\run_free_camera.ps1 -Compiler 'C:\path\to\llvm-mingw\bin\clang++.exe' -Runtime 'C:\deps\ReShade64.dll' -Font 'C:\deps\NotoSansCJKsc-Regular.otf'
+```
+
+Repeat with `-InputSuite` to exercise the production keyboard/mouse routing in a hidden test window, and with `-Cached` to verify movement and restore when the engine reuses camera constants without rewriting them. Use `-LateDescriptor -GpuUpload` to verify descriptors populated after binding and GPU Upload heaps (requires hardware support). These tests do not change desktop focus or generate system-wide input. They do not replace validation in an actual game level.
+
 ## Create a distributable package
 
 After building, provide the tested ReShade runtime, the unmodified Noto Sans CJK SC Regular font and its license to the packaging script:
@@ -48,14 +61,14 @@ After building, provide the tested ReShade runtime, the unmodified Noto Sans CJK
 python scripts/package.py --runtime 'C:\deps\ReShade64.dll' --font 'C:\deps\NotoSansCJKsc-Regular.otf' --font-license 'C:\deps\LICENSE-Noto.txt'
 ```
 
-This creates a ZIP in `dist/` with bilingual guides, install/uninstall scripts, checksums, configuration and notices. It validates the external dependency hashes; it does not download dependencies. The package uses the source build output, not a binary branding patch. Verify a fresh package before distributing it. [Nexus publishing notes](docs/UPLOAD_GUIDE_zh-CN.md) and an [English page draft](docs/NEXUS_DESCRIPTION_EN.md) are included.
+This creates a ZIP in `dist/` with bilingual manual-install/uninstall guides, checksums, configuration and notices, without installer scripts. It validates the external dependency hashes; it does not download dependencies. The package uses the source build output, not a binary branding patch. Verify a fresh package before distributing it. [Nexus publishing notes](docs/UPLOAD_GUIDE_zh-CN.md) and an [English page draft](docs/NEXUS_DESCRIPTION_EN.md) are included.
 
 ## Source layout
 
 - `src/`: add-on, drawing model, camera/grid observers, cursor artwork, and localization.
 - `tests/`: model, grid/projection, localization tests, and a synthetic DX12 rendering host.
 - `config/`: example ReShade configuration for packaged installs.
-- `scripts/`: portable package installer and release packager.
+- `scripts/`: release packager.
 - `docs/`: English/Chinese usage, validation scope, and publishing materials.
 - `third_party/`: the header dependencies and original licenses.
 

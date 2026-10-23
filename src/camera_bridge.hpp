@@ -6,8 +6,8 @@
 #include <cstring>
 #include "grid_math.hpp"
 
-// component_viewpoint_c (b2) in this game's DX12 shaders: 1216 bytes,
-// rounded to a 1280-byte CBV. Observe descriptors, then read upload memory
+// The camera prefix is 960 bytes; the containing CBV can be padded or include
+// additional fields. Observe descriptors, then read upload memory
 // at the overlay callback, after the game has populated the buffer.
 namespace sketch::camera_bridge {
 struct Buffer {ID3D12Resource *resource;uint64_t offset;};
@@ -20,13 +20,13 @@ inline bool updated(reshade::api::device *device,uint32_t count,const reshade::a
         const auto &u=updates[k];if(u.type!=reshade::api::descriptor_type::constant_buffer)continue;
         auto ranges=static_cast<const reshade::api::buffer_range*>(u.descriptors);
         for(unsigned i=0;i<u.count;++i){
-            if(ranges[i].size!=1280||!ranges[i].buffer.handle)continue;
+            if(ranges[i].size<960||ranges[i].size>65536||!ranges[i].buffer.handle)continue;
             auto r=reinterpret_cast<ID3D12Resource*>(ranges[i].buffer.handle);
             auto at=std::find_if(buffers.begin(),buffers.end(),[&](const Buffer &b){return b.resource==r&&b.offset==ranges[i].offset;});
             if(at!=buffers.end()){auto b=*at;buffers.erase(at);buffers.push_back(b);continue;}
             auto d=r->GetDesc();D3D12_HEAP_PROPERTIES heap{};D3D12_HEAP_FLAGS flags{};
             if(d.Dimension!=D3D12_RESOURCE_DIMENSION_BUFFER||ranges[i].offset>d.Width||d.Width-ranges[i].offset<960
-                ||FAILED(r->GetHeapProperties(&heap,&flags))||heap.Type!=D3D12_HEAP_TYPE_UPLOAD)continue;
+                ||FAILED(r->GetHeapProperties(&heap,&flags))||(heap.Type!=D3D12_HEAP_TYPE_UPLOAD&&int(heap.Type)!=5))continue;
             r->AddRef();buffers.push_back({r,ranges[i].offset});
             if(buffers.size()>192){buffers.front().resource->Release();buffers.erase(buffers.begin());}
         }
