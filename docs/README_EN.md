@@ -1,4 +1,7 @@
-# SinkingStarSketchPad 3.4.5
+# SinkingStarSketchPad 3.4.6
+
+Current download: the 3.4.6 Minimal package contains only one bilingual installation guide (including license notices) and three game files: dxgi.dll, SinkingStarSketch.addon64 and ReShade.ini. Fonts, changelogs and developer material are not bundled. ReShade uses a system/built-in font; for Chinese missing glyphs, select an installed Chinese font in ReShade settings. Follow the bilingual installation document in the ZIP for the current installation.
+
 
 In-game drawing, scratch pages, a themed cursor, and cell-snapped route planning for **Order of the Sinking Star**. This is a native 64-bit ReShade add-on rendered into the game's DirectX 12 frame. It is not a separate desktop overlay.
 
@@ -7,36 +10,14 @@ In-game drawing, scratch pages, a themed cursor, and cell-snapped route planning
 ## Requirements
 
 - A 64-bit Windows installation and the DirectX 12 version of the game (`sinking_star.exe`).
-- The package includes the tested **ReShade 6.8.0 full add-on support** runtime, the add-on, a configuration file, and an openly licensed Noto CJK font. No separate ReShade download is needed for a fresh install.
+- The package includes the tested **ReShade 6.8.0 full add-on support** runtime, the add-on, a configuration file. No separate ReShade download is needed for a fresh install.
 - Manual file-copy installation. No CMD, batch, PowerShell or executable installer is included or required.
 
 ## Install or upgrade
 
-See **INSTALL_EN.txt** for the quick-start instructions. Completely exit the game first.
+Follow the bilingual installation document inside the Minimal ZIP, or [INSTALL_EN.txt](INSTALL_EN.txt) in the repository. The ZIP has three game files: dxgi.dll, SinkingStarSketch.addon64 and ReShade.ini. Copy them beside sinking_star.exe for a fresh installation with no existing graphics proxy. For an upgrade, replace only the add-on, preserve drafts/configuration and ensure [INPUT] InputProcessing=1. No scripts are used.
 
-For a fresh installation with no existing ReShade/graphics proxy, extract the archive and copy the **contents** of `game_files` into the folder containing `sinking_star.exe`. Keep this layout:
-
-```text
-sinking_star.exe
-dxgi.dll
-SinkingStarSketch.addon64
-ReShade.ini
-SinkingStarSketch-assets/
-  NotoSansCJKsc-Regular.otf
-```
-
-Do not place the `game_files` folder itself next to the executable. Start the game and press **E** to open the toolbar.
-
-For an upgrade, back up the existing add-on, font assets, `ReShade.ini`, and `SinkingStarSketch-data` outside the game directory. Copy the new add-on and font assets, preserve your drafts/preferences, and keep the existing configuration. In `ReShade.ini`, set the key below in its existing section, replacing the old value without duplicates:
-
-```ini
-[INPUT]
-InputProcessing=1
-```
-
-Add this section only if it is absent. This value is required for separate mouse/keyboard capture; mode 2 blocks the keyboard and mode 0 allows drawing clicks to reach the game. This is a manual change; no installer backs up or edits settings for you.
-
-Keep an existing ReShade runtime instead of overwriting it blindly. Only the bundled ReShade 6.8.0 full add-on runtime has been tested. Read **Existing ReShade installations** below before combining graphics mods. No automatic conflict detection is performed in this manual package.
+No font files are bundled. Font= is empty so ReShade selects a system/built-in font according to its own UI language. If Chinese glyphs are missing, select an installed Chinese-capable global font in ReShade settings (Home), such as C:\Windows\Fonts\msyh.ttc if present. The mod language setting does not select a font. To remove an old bundled font, first clear [STYLE] Font in the existing ReShade.ini, then remove that old asset.
 
 ## Language
 
@@ -89,11 +70,14 @@ Press the single key **T**, or the toolbar's **Free camera** button, after enter
 | Zoom the lens | Mouse wheel outside the tool panels |
 | Show / hide drawing toolbar | E |
 | Undo an annotation while the camera is active | Ctrl+Z |
-| Restore the game view and disable the free camera | Esc, T, or Restore game view |
+| Leave camera controls (keep view by default) | Esc or T |
+| Restore the original game view | Restore game view button |
 
-The camera panel offers separate **Invert mouse X** and **Invert mouse Y** checkboxes. X reverses horizontal right-drag rotation; Y reverses vertical right-drag tilt. Neither changes WASD, height keys or the wheel. Both default off. Movement speed and mouse sensitivity are adjustable and are saved together with these checkboxes in `SinkingStarSketch-data/settings.ini`; reopening the camera or restarting the game retains them. Resetting the view keeps these preferences.
+**Keep view when leaving camera controls** defaults on. T, Esc and the toolbar toggle release camera input while retaining the chosen view; T resumes adjustment without resetting it. Game keyboard controls and drawing become available again. The **Restore game view** button always restores, and remains available in the drawing toolbar while a view is held. Turn the checkbox off to restore automatically on exit. The checkbox persists, but the held pose does not survive a game restart; a detected scene/camera discontinuity also clears it. This holds the rendered view, so game-side mouse picking and culling still have the limits below. Existing saved speed settings are preserved; choose 5 in the panel if upgrading from a saved speed of 3.
 
-Default movement speed is now 3 world units/second (previously 12), mouse sensitivity is 0.08 degrees/pixel (previously 0.30), Shift gives 2× speed, and wheel zoom changes by 6% per notch. Tilt stops at the overhead position and five degrees before the horizon, keeping the original side of the view. WASD directions follow yaw independently of tilt, preventing reversal when looking down.
+The camera panel offers separate **Invert mouse X** and **Invert mouse Y** checkboxes. X reverses horizontal right-drag rotation; Y reverses vertical right-drag tilt. Neither changes WASD, height keys or the wheel. X defaults off; Y defaults on. Explicitly saved axis preferences are preserved. Movement speed and mouse sensitivity are adjustable and are saved together with these checkboxes in `SinkingStarSketch-data/settings.ini`; reopening the camera or restarting the game retains them. Resetting the view keeps these preferences.
+
+Default movement speed is now 5 world units/second (3 in version 3.4.5), mouse sensitivity is 0.08 degrees/pixel (previously 0.30), Shift gives 2× speed, and wheel zoom changes by 6% per notch. Tilt stops at the overhead position and five degrees before the horizon, keeping the original side of the view. WASD directions follow yaw independently of tilt, preventing reversal when looking down.
 
 The camera panel also offers X/Y/height offsets, yaw, tilt, zoom and reset-to-current-game-camera controls. While enabled, keyboard and mouse input are reserved for the camera and drawing, so WASD does not move the character. Text entry pauses camera movement. A scene/camera discontinuity may disable the override automatically. The normal 3.3-style keyboard/game coexistence returns when the free camera is disabled. Existing world paths use the same modified camera projection and remain anchored to cells; ordinary pen/text annotations remain in screen space.
 
@@ -126,24 +110,16 @@ Normal mode uses a pale gold crystal-blade pointer with a dark edge and a small 
 - Up to 2,000 marks per page, 120,000 total points, and 60 undo steps. Undo history does not survive a restart.
 - Old draft files can be read. Versions 3.x write the newer draft format; do not open it with 2.1. For a downgrade, restore the pre-upgrade draft from the backup.
 
-## Uninstall
+## Uninstall and existing ReShade setups
 
-Completely exit the game and move `SinkingStarSketch.addon64` outside the game folder. This disables the sketchpad. Preserve `SinkingStarSketch-data` to keep drafts, language preferences and exports.
-
-To remove the bundled ReShade from a fresh installation as well, move its `dxgi.dll`, `ReShade.ini`, and font assets outside the game folder only after confirming they are not used by another graphics mod. Restore a previous graphics setup from your backup if applicable. No uninstall script is required.
-
-## Existing ReShade installations
-
-If you already use ReShade, back up that setup and verify its version and **full add-on support** before proceeding. You may copy only `SinkingStarSketch.addon64` and the font assets into your existing installation, enable loading add-ons from the game folder, and keep your own `dxgi.dll` and other ReShade settings. Set `[INPUT] InputProcessing=1` in `ReShade.ini` before starting the game; mode 2 still blocks the keyboard during drawing, and mode 0 does not protect game mouse input. Only the bundled 6.8.0 runtime has been validated here. Other ReShade versions and graphics proxy combinations are not verified. Select the bundled Noto font in ReShade's settings if Chinese glyphs are missing.
-
-To disable a manual install, exit the game and move this add-on out of the game directory. Remove the bundled `dxgi.dll` only if it belongs to this mod's installation and is not shared by another setup.
+Exit the game and move SinkingStarSketch.addon64 outside the game directory. Keep SinkingStarSketch-data to preserve drafts and preferences. Remove dxgi.dll and ReShade.ini only if no other graphics mod uses them. Keep an existing ReShade setup when upgrading; only ReShade 6.8.0 full add-on support has been tested here. Required input setting: [INPUT] InputProcessing=1.
 
 ## Troubleshooting and scope
 
 - No toolbar: confirm installation beside the actual executable, completely restart the game, then press E. **Home** opens ReShade's own settings, whose language is separate from this mod.
 - Grid/camera still waiting: enter a regular level, wait, and inspect the preview. The detector relies on upright instances on a regular horizontal grid; sloped terrain, unusual floors, camera/level transitions, wrapping-map behavior, and game updates need verification. Do not assume an arbitrary grid if detection is unavailable.
 - Incorrect alignment: stop using that route and keep a screenshot plus a description of the level/camera view for a bug report. Do not treat the preview as an obstacle or walkability map.
-- Missing Chinese glyphs after an upgrade: keep your existing `ReShade.ini` and inspect its font setting. In ReShade settings, choose `SinkingStarSketch-assets/NotoSansCJKsc-Regular.otf` as the font and restart if needed.
+- Missing Chinese glyphs after an upgrade: choose an installed Chinese-capable global font in ReShade settings and restart if needed.
 - Diagnostics: `ReShade.log` and `SinkingStarSketch-data/status.txt`. Review logs and remove personal paths before posting them publicly.
 - Current validation covers real-game upload data, grid inference, draft compatibility, both UI languages, DX12 rendering, and synthetic camera movement/zoom/resize. Full gameplay alignment across all levels remains unverified.
 
@@ -153,7 +129,6 @@ This is an unofficial community tool, not an official game feature. The cursor a
 
 - ReShade 6.8.0 by Patrick Mours and contributors: [official site](https://reshade.me/) — BSD 3-Clause notice in `licenses`.
 - Dear ImGui by Omar Cornut and contributors: [repository](https://github.com/ocornut/imgui) — MIT notice in `licenses`.
-- Noto Sans CJK: [official repository](https://github.com/notofonts/noto-cjk) — unmodified font and SIL Open Font License 1.1 notice in `licenses`.
 - LLVM-MinGW runtime components: bundled notices in `licenses`.
 
 Development and translations include generative-AI-produced code and text. Mod-specific source code and documentation are licensed under MIT, copyright 2026 ouyangzhixuan. Third-party components retain their original licenses.

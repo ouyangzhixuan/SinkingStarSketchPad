@@ -1,35 +1,36 @@
-SinkingStarSketchPad 3.4.5 — Manual installation
+SinkingStarSketchPad 3.4.6 — Minimal manual installation
 
-No CMD, batch, PowerShell or executable installer is included or required.
+NEW INSTALL
+Save and completely exit the game. Locate the folder containing sinking_star.exe.
+If no other ReShade/graphics proxy is installed, copy the three files INSIDE game_files:
+dxgi.dll, SinkingStarSketch.addon64, ReShade.ini. No installer script is needed.
 
-FRESH INSTALL (no existing ReShade or graphics proxy):
-1. Save your progress and completely exit the game.
-2. Extract this ZIP to a normal folder.
-3. Open the game folder containing sinking_star.exe. Back up any existing graphics-mod files before making changes.
-4. Copy the CONTENTS of game_files into that folder:
-   dxgi.dll
-   SinkingStarSketch.addon64
-   ReShade.ini
-   SinkingStarSketch-assets\NotoSansCJKsc-Regular.otf
-   Keep the SinkingStarSketch-assets folder intact. Do not copy only the font or place the game_files folder itself next to the executable.
-5. Start the game. E opens drawing; G toggles the cursor; B toggles marks. Alt+letter selects tools; Alt+H selects paths.
+UPGRADE
+Exit the game and back up the old add-on/configuration. Replace only SinkingStarSketch.addon64.
+Keep your existing dxgi.dll, ReShade.ini and SinkingStarSketch-data (drafts/preferences).
+Ensure [INPUT] InputProcessing=1 in ReShade.ini.
+To remove an old bundled font, first clear [STYLE] Font to Font= in ReShade.ini,
+then remove NotoSansCJKsc-Regular.otf from SinkingStarSketch-assets. Do not delete Windows fonts.
 
-UPGRADE / EXISTING RESHADE:
-1. Exit the game. Back up the old add-on, ReShade.ini, font assets, and SinkingStarSketch-data folder outside the game folder.
-2. Copy SinkingStarSketch.addon64 and the SinkingStarSketch-assets folder from game_files into the game folder. Preserve SinkingStarSketch-data.
-3. Keep your existing dxgi.dll and ReShade.ini. Only the bundled ReShade 6.8.0 full add-on runtime is tested; verify a different ReShade setup before using it. Do not overwrite an unknown graphics proxy.
-4. Open your ReShade.ini in a text editor. Under the existing [INPUT] section, set InputProcessing=1 (replace the old value; avoid duplicate entries). If [INPUT] is absent, add:
-   [INPUT]
-   InputProcessing=1
-   Mode 2 blocks the keyboard during drawing. Mode 0 lets drawing mouse input affect the game.
-5. Ensure ReShade loads add-ons from the game folder. For missing Chinese glyphs, choose SinkingStarSketch-assets/NotoSansCJKsc-Regular.otf in ReShade's font settings, then restart the game.
+FONTS
+No font files are bundled. ReShade chooses a system or built-in font based on its own UI language.
+If Chinese text shows missing glyphs, press Home, open ReShade settings and choose an installed
+Chinese-capable global font, e.g. C:\Windows\Fonts\msyh.ttc if present. Restart if necessary.
+An English Windows installation may need a Chinese font installed separately; English UI works
+with the built-in font. The mod language menu does not change ReShade's language or font.
 
-UNINSTALL / DISABLE:
-Exit the game, then move SinkingStarSketch.addon64 outside the game folder. This disables the sketchpad. Preserve SinkingStarSketch-data to keep drafts, preferences and exports.
-If you also want to remove a fresh installation's bundled ReShade, move its dxgi.dll, ReShade.ini and font assets outside the game folder only after confirming that no other mod uses them. Restore your previous graphics setup from your backup if applicable.
+CONTROLS
+E drawing; G cursor; B marks; T free camera. WASD pans, Q/Z changes height,
+right drag rotates, wheel zooms. T/Esc leaves camera controls and keeps the view by default.
+Disable Keep view on exit for automatic restoration, or click Restore game view.
+Default speed is 5; existing saved preferences remain. The camera is experimental and original
+scene culling may not follow large changes.
 
-This release adds an experimental free camera to the native add-on. Read README_EN.md for full controls, requirements and compatibility limits.
+UNINSTALL
+Exit the game and move SinkingStarSketch.addon64 out of the game folder. Keep
+SinkingStarSketch-data for drafts. Remove dxgi.dll/ReShade.ini only if no other mod shares them.
 
-FREE CAMERA (EXPERIMENTAL): T toggles. WASD pans, Q/Z moves up/down, Shift speeds up, right drag rotates/tilts, wheel zooms, Esc restores the game view. E toggles drawing. Camera mode reserves keyboard/mouse input; Ctrl+Z undoes annotations. Large view changes can reveal original-game culling/shadow/reflection limits. Read README_EN.md.
+Source and full guides: https://github.com/ouyangzhixuan/SinkingStarSketchPad
+Development includes AI-assisted code and documentation. Full license notices follow below.
 
-3.4.5: Gentler movement/rotation/zoom, tilt limits, and separate Invert mouse X / Invert mouse Y checkboxes in the camera panel. Speed, sensitivity and axis preferences save automatically.
+Invert mouse Y defaults on; X defaults off. Explicitly saved axis choices are preserved.

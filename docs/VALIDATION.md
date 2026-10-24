@@ -1,4 +1,8 @@
-# Validation — 3.4.5 Beta
+# Validation — 3.4.6 Beta
+
+Minimal packaging revision: ZIP has exactly one bilingual installation document and three unchanged game payloads, with no bundled fonts. Complete applicable license texts are merged into the document. Automatic-font hidden DX12 input test passed (240 frames, resize and device status 0). This does not guarantee Chinese font availability on every Windows installation.
+
+- New regression coverage checks retained-view rendering and world-path projection after releasing controls, resume after resize, explicit restoration, keyboard release and the saved keep-view option. Actual-game behavior of view retention still requires user verification.
 
 - The 3.4.5 control changes pass core tests for independent X/Y inversion, gentler defaults, absolute tilt bounds, pitch-independent ground movement and preference retention. Actual-game feel of these new controls still needs user verification.
 - The hidden production-input fixture checks saved speed/sensitivity/X/Y settings reload correctly without changing the interface language.

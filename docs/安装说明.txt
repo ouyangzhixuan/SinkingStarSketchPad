@@ -1,34 +1,37 @@
-SinkingStarSketchPad 3.4.5 — 手动安装
+SinkingStarSketchPad 3.4.6 — 精简手动安装包
 
-本包不包含也不需要 CMD、批处理、PowerShell 或 EXE 安装程序。
+首次安装
+1. 保存进度并完全退出游戏。
+2. 找到 sinking_star.exe 所在文件夹。
+3. 确认没有其他 ReShade / 图形代理后，将 game_files 里面的三个文件复制进去：
+   dxgi.dll、SinkingStarSketch.addon64、ReShade.ini。
+   不要把 game_files 文件夹本身复制进去；无需运行安装脚本。
 
-首次安装（没有其他 ReShade 或图形代理）：
-1. 保存进度，正常完全退出游戏，解压本 ZIP。
-2. 打开包含 sinking_star.exe 的游戏目录。修改前先备份已有图形 Mod 文件。
-3. 将 game_files 文件夹里面的内容复制到该目录：
-   dxgi.dll
-   SinkingStarSketch.addon64
-   ReShade.ini
-   SinkingStarSketch-assets\NotoSansCJKsc-Regular.otf
-   保持字体子目录完整；不要只复制字体，也不要把整个 game_files 文件夹原样放在 EXE 旁边。
-4. 启动游戏：E 打开绘图，G 指针显隐，B 草稿显隐；Alt+字母选择工具，Alt+H 为路径。
+更新已有 Mod
+退出游戏并备份旧插件与配置，仅替换 SinkingStarSketch.addon64。
+保留已有 dxgi.dll、ReShade.ini 和 SinkingStarSketch-data（草稿和偏好）。
+确认 ReShade.ini 中 [INPUT] 的 InputProcessing=1。
+若需去掉旧附带字体：先将 [STYLE] 的 Font 值清空为 Font=，再删除
+SinkingStarSketch-assets 内的 NotoSansCJKsc-Regular.otf。不要删除系统字体。
 
-升级或已有 ReShade：
-1. 退出游戏，将旧插件、ReShade.ini、字体和 SinkingStarSketch-data 备份到游戏目录之外。
-2. 从 game_files 复制 SinkingStarSketch.addon64 和 SinkingStarSketch-assets 文件夹到游戏目录，保留原 SinkingStarSketch-data。
-3. 保留已有的 dxgi.dll 和 ReShade.ini。仅验证了附带的 ReShade 6.8.0 完整插件运行库；其他 ReShade 设置需先核对兼容性，不要覆盖来源不明的图形代理。
-4. 用文本编辑器打开 ReShade.ini，在已有 [INPUT] 节下把 InputProcessing 改为 1，替换旧值，不要重复添加键。没有 [INPUT] 时添加：
-   [INPUT]
-   InputProcessing=1
-   设为 2 会继续屏蔽绘图时的键盘；设为 0 则鼠标绘图会影响游戏。
-5. 确保 ReShade 从游戏目录加载插件。中文缺字时，在 ReShade 字体设置里选择 SinkingStarSketch-assets/NotoSansCJKsc-Regular.otf，然后重启游戏。
+字体
+本包不附带字体，ReShade 按自身界面语言选择系统字体或内置英文字体。
+中文 Windows 通常可使用微软雅黑。若中文显示方框，按 Home 打开 ReShade，
+在设置中的全局字体选择本机支持中文的字体，例如 C:\Windows\Fonts\msyh.ttc，
+必要时重启游戏。英文系统未安装中文字体时，需要自行安装中文字体，或使用英文界面。
+Mod 的语言菜单和 ReShade 的界面语言独立，切换 Mod 语言不会自动更换字体。
 
-卸载或停用：
-退出游戏，把 SinkingStarSketch.addon64 移到游戏目录之外即可停用草稿功能。保留 SinkingStarSketch-data，以保留草稿、偏好与导出。
-如需一并移除首次安装附带的 ReShade，先确认没有其他 Mod 共用，再移出本包的 dxgi.dll、ReShade.ini 和字体资源；原有图形设置可从此前的备份恢复。
+使用
+E 绘图；G 光标；B 笔迹显隐；T 自由相机。
+WASD 平移、Q/Z 升降、右键拖动旋转、滚轮缩放。
+T/Esc 退出相机操作，默认保留视角；面板可关闭保留选项，或点击恢复游戏视角归位。
+默认移动速度 5；已有速度偏好保留。相机属于实验性渲染覆盖，大幅变换可能受原游戏裁剪影响。
 
-本次新增实验性自由相机，插件二进制已更新。完整操作和兼容说明见 README_zh-CN.md。
+卸载
+退出游戏，移走 SinkingStarSketch.addon64。保留 SinkingStarSketch-data 可保留草稿。
+仅当没有其他 Mod 共用时，才移除本包的 dxgi.dll 与 ReShade.ini。
 
-自由相机（实验功能）：T 开关；WASD 平移，Q/Z 升降，Shift 加速，右键拖动旋转/俯仰，滚轮缩放，Esc 恢复游戏视角；E 开关绘图，Ctrl+Z 撤销笔迹。开启时接管键鼠，大幅视角变化可能受游戏原有裁剪、阴影、反射限制，详见 README_zh-CN.md。
+源码与完整使用说明：https://github.com/ouyangzhixuan/SinkingStarSketchPad
+开发包含 AI 辅助生成的代码与文档。许可全文附于安装说明末尾。
 
-3.4.5：降低默认移动、旋转和缩放速度，加入俯仰限制；相机面板可独立勾选“反转鼠标 X 轴 / Y 轴”。速度、灵敏度和轴向设置自动保存。
+默认勾选反转鼠标 Y 轴，X 轴默认不反转；已保存的轴向选择保留。

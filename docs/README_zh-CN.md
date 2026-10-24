@@ -1,4 +1,6 @@
-# SinkingStarSketchPad 3.4.5
+# SinkingStarSketchPad 3.4.6
+
+当前精简包只含一份中英安装说明（含许可全文）和三个游戏文件：dxgi.dll、SinkingStarSketch.addon64、ReShade.ini，不再附带字体或开发文档。ReShade 使用系统/内置字体；中文缺字时在 ReShade 设置中选择本机中文字体。安装步骤见包内中英安装说明，或源码中的“安装说明.txt”。
 
 《沉星之序》的游戏内绘图与路线标记工具。提供星芒鼠标光标、画笔、几何图形、文字、三页草稿和自动吸附格心的路径。通过原生 64 位 ReShade 插件绘制到 DirectX 12 游戏画面。
 
@@ -6,31 +8,9 @@
 
 ## 安装和升级
 
-本包采用手动复制安装，不包含也不需要 CMD、批处理、PowerShell 或 EXE 安装程序。简明步骤见 **安装说明.txt**。
+本包手动复制安装，具体步骤见“安装说明.txt”。首次安装且没有其他图形代理时，退出游戏后将 game_files 内的三个文件复制到 sinking_star.exe 旁。更新时只替换插件，保留运行库、配置和草稿，并确认 [INPUT] InputProcessing=1。
 
-首次安装且没有其他 ReShade / 图形代理时：保存进度并完全退出游戏，解压发布包，将 `game_files` **里面的内容**复制到包含 `sinking_star.exe` 的目录，保持以下结构：
-
-```text
-sinking_star.exe
-dxgi.dll
-SinkingStarSketch.addon64
-ReShade.ini
-SinkingStarSketch-assets/
-  NotoSansCJKsc-Regular.otf
-```
-
-不要把整个 `game_files` 文件夹原样放在 EXE 旁。启动游戏后按 E 打开绘图。
-
-升级时，先将旧插件、字体、`ReShade.ini` 与 `SinkingStarSketch-data` 备份到游戏目录之外，再复制新插件和字体。保留草稿、偏好和原配置；手动编辑 `ReShade.ini` 中已有 `[INPUT]` 节，把 `InputProcessing` 的值改为 `1`，不要重复添加键。没有该节时添加：
-
-```ini
-[INPUT]
-InputProcessing=1
-```
-
-该值用于分别处理键盘和鼠标；`2` 会继续屏蔽绘图时的键盘，`0` 会让绘图鼠标影响游戏。本包不会自动备份、修改配置或检测冲突，需按上述步骤自行完成。
-
-已有 ReShade 或其他图形代理时，保留原运行库，先阅读英文说明的 Existing ReShade installations，不要强行覆盖。本版只验证了附带的 ReShade 6.8.0 完整插件运行库。
+不附带字体，Font= 留空，由 ReShade 按自身语言选择系统/内置字体。中文缺字时按 Home，在 ReShade 设置中选择本机中文字体（例如存在时的 C:\Windows\Fonts\msyh.ttc）。Mod 的语言菜单不会更换字体。删除旧 Noto 字体前，先清空原 ReShade.ini 中 [STYLE] 的 Font 值。
 
 ## 中英文切换
 
@@ -78,11 +58,14 @@ E/G/B 只在不按 Ctrl/Shift/Alt 且没有文字输入框时触发。已核对�
 | 镜头缩放 | 工具面板之外滚动滚轮 |
 | 绘图工具栏开关 | E |
 | 相机开启时撤销笔迹 | Ctrl+Z |
-| 恢复游戏视角并关闭自由相机 | Esc、T 或面板按钮 |
+| 退出相机操作（默认保留视角） | Esc 或 T |
+| 恢复原游戏视角 | “恢复游戏视角”按钮 |
 
-相机面板新增独立的 **反转鼠标 X 轴** 和 **反转鼠标 Y 轴**：X 改变右键横向拖动的旋转方向，Y 改变纵向拖动的俯仰方向，不影响 WASD、升降键或滚轮。默认均关闭。移动速度、鼠标灵敏度和两个反转开关自动保存到 `SinkingStarSketch-data/settings.ini`，重新开启相机、重启游戏后仍保留；重置视角也不会清除这些偏好。
+**退出自由相机时保留视角**默认开启。按 T、Esc 或工具栏开关退出后，视角留在当前位置，键盘恢复操作游戏；再次按 T 可接着调整。点击“恢复游戏视角”始终可以归位，保留视角时该按钮也会显示在绘图工具栏。取消勾选则恢复退出自动归位。开关自动保存，但保留的机位不跨游戏重启保存；检测到场景或原相机大幅跳变时也会清除。保留的是渲染视角，鼠标选取及裁剪仍受下述限制。已有的速度偏好不会覆盖；若之前保存了速度 3，可在面板改成 5。
 
-默认移动速度从 12 降至 3 世界单位/秒，鼠标灵敏度从 0.30 降至 0.08 度/像素，Shift 为 2 倍速度，滚轮每格缩放 6%。俯仰在俯视顶部和距离地平线 5 度的位置停止，保持原视角所在一侧；WASD 地面移动方向只跟随水平旋转，避免俯仰导致方向翻转。
+相机面板提供独立的 **反转鼠标 X 轴** 和 **反转鼠标 Y 轴**：X 改变右键横向拖动的旋转方向，Y 改变纵向拖动的俯仰方向，不影响 WASD、升降键或滚轮。默认 X 轴反转关闭、Y 轴反转开启；已保存的轴向偏好保留。移动速度、鼠标灵敏度和两个反转开关自动保存到 `SinkingStarSketch-data/settings.ini`，重新开启相机、重启游戏后仍保留；重置视角也不会清除这些偏好。
+
+默认移动速度从 3 提高至 5 世界单位/秒，鼠标灵敏度从 0.30 降至 0.08 度/像素，Shift 为 2 倍速度，滚轮每格缩放 6%。俯仰在俯视顶部和距离地平线 5 度的位置停止，保持原视角所在一侧；WASD 地面移动方向只跟随水平旋转，避免俯仰导致方向翻转。
 
 相机面板还提供 X/Y/高度偏移、旋转、俯仰、缩放和重置到当前游戏相机。开启时键鼠由相机和绘图接管，WASD 不再移动人物；输入文字时暂停移动。检测到场景或原相机大幅跳变时可能自动关闭。关闭后恢复原有键盘操作游戏的行为。格子路径使用同一套覆盖后的相机投影，仍固定在原格子上；普通画笔和文字仍固定在屏幕上。
 
@@ -118,9 +101,9 @@ E/G/B 只在不按 Ctrl/Shift/Alt 且没有文字输入框时触发。已核对�
 
 没有工具栏时确认安装在实际运行的 EXE 旁，完全重启游戏后按 E。格子或相机一直等待时进入普通关卡稍候，不要假定任意网格就是实际地面。
 
-升级后中文缺字时，请检查保留的原 `ReShade.ini`：请在 ReShade 字体设置中选择 `SinkingStarSketch-assets/NotoSansCJKsc-Regular.otf`。日志为 `ReShade.log` 和 `SinkingStarSketch-data/status.txt`；公开提交前请检查其中的个人路径。
+升级后中文缺字时，请检查保留的原 `ReShade.ini`：请在 ReShade 字体设置中选择本机支持中文的字体。日志为 `ReShade.log` 和 `SinkingStarSketch-data/status.txt`；公开提交前请检查其中的个人路径。
 
-附带 ReShade（BSD 3-Clause）、Dear ImGui（MIT）、Noto Sans CJK（SIL OFL 1.1）及 LLVM-MinGW 运行时许可，见 `licenses`。没有分发提取的游戏文件或美术资源。本工具与官方无关。代码、界面和翻译包含生成式 AI 生成内容。项目源码和文档采用 MIT 许可证，版权所有 2026 ouyangzhixuan；第三方组件独立遵守各自许可。
+附带 ReShade（BSD 3-Clause）、Dear ImGui（MIT）、 LLVM-MinGW 运行时许可，全文合并在包内安装说明末尾。没有分发提取的游戏文件或美术资源。本工具与官方无关。代码、界面和翻译包含生成式 AI 生成内容。项目源码和文档采用 MIT 许可证，版权所有 2026 ouyangzhixuan；第三方组件独立遵守各自许可。
 
 更详细的安装、兼容性与控制说明见 [README_EN.md](README_EN.md)。
 

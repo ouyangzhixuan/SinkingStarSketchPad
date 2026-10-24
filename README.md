@@ -1,5 +1,8 @@
 # SinkingStarSketchPad
 
+Current download: the 3.4.6 Minimal package contains only one bilingual installation guide (including license notices) and three game files: dxgi.dll, SinkingStarSketch.addon64 and ReShade.ini. Fonts, changelogs and developer material are not bundled. ReShade uses a system/built-in font; for Chinese missing glyphs, select an installed Chinese font in ReShade settings. Follow the bilingual installation document in the ZIP for the current installation.
+
+
 An in-game sketchpad for **Order of the Sinking Star**: draw ideas, add text notes, and plan routes snapped to cell centers. This is a native 64-bit ReShade add-on rendered inside the game's DirectX 12 frame, with English and Simplified Chinese interfaces.
 
 **Source repository:** [github.com/ouyangzhixuan/SinkingStarSketchPad](https://github.com/ouyangzhixuan/SinkingStarSketchPad)
@@ -26,9 +29,11 @@ Press **E** to open/close the toolbar, **G** for cursor visibility, and **B** fo
 
 The compatible add-on filename and persistent data folder remain `SinkingStarSketch.addon64` and `SinkingStarSketch-data` so existing drafts and preferences continue to work.
 
+Version 3.4.6 raises default movement speed to 5 and adds a persistent keep-view-on-exit checkbox (on by default). T/Esc releases camera controls while keeping the view; T resumes, and Restore game view always restores.
+
 Version 3.4.5 adds gentler defaults, tilt limits, adjustable mouse sensitivity and separate **Invert mouse X/Y** settings, saved across restarts.
 
-Free camera: **T**, WASD pan, Q/Z up/down, right-drag orbit/tilt, wheel zoom, Esc restore. It defaults off and captures keyboard/mouse while active. This is a render-camera override; game-side culling, shadows, reflections and mouse picking may not follow large changes. The user confirmed actual-game camera movement with the 3.4.4 fix on 23 October 2026. This fixes the CPU-upload-to-GPU camera path missed by earlier builds; broader visual compatibility remains experimental.
+Free camera: **T**, WASD pan, Q/Z up/down, right-drag orbit/tilt, wheel zoom, T/Esc leave camera controls. It defaults off and captures keyboard/mouse while active. This is a render-camera override; game-side culling, shadows, reflections and mouse picking may not follow large changes. The user confirmed actual-game camera movement with the 3.4.4 fix on 23 October 2026. This fixes the CPU-upload-to-GPU camera path missed by earlier builds; broader visual compatibility remains experimental.
 
 ## Build from source
 
@@ -55,10 +60,10 @@ Repeat with `-InputSuite` to exercise the production keyboard/mouse routing in a
 
 ## Create a distributable package
 
-After building, provide the tested ReShade runtime, the unmodified Noto Sans CJK SC Regular font and its license to the packaging script:
+After building, provide only the tested ReShade runtime to the packaging script:
 
 ```powershell
-python scripts/package.py --runtime 'C:\deps\ReShade64.dll' --font 'C:\deps\NotoSansCJKsc-Regular.otf' --font-license 'C:\deps\LICENSE-Noto.txt'
+python scripts/package.py --runtime 'C:\deps\ReShade64.dll'
 ```
 
 This creates a ZIP in `dist/` with bilingual manual-install/uninstall guides, checksums, configuration and notices, without installer scripts. It validates the external dependency hashes; it does not download dependencies. The package uses the source build output, not a binary branding patch. Verify a fresh package before distributing it. [Nexus publishing notes](docs/UPLOAD_GUIDE_zh-CN.md) and an [English page draft](docs/NEXUS_DESCRIPTION_EN.md) are included.
